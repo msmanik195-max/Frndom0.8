@@ -1,7 +1,11 @@
 package com.example.ui.menu
 
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,13 +21,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -41,6 +48,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -62,7 +70,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -127,7 +137,38 @@ fun GroupDetailView(
 
     var postText by remember { mutableStateOf("") }
     var mediaUrlInput by remember { mutableStateOf("") }
+    var uploadedMediaUrls by remember { mutableStateOf<List<String>>(emptyList()) }
+    var selectedMediaUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var isUploadingMedia by remember { mutableStateOf(false) }
     var showMediaUrlDialog by remember { mutableStateOf(false) }
+
+    val coroutineScope = rememberCoroutineScope()
+    val uploadService = mediaUploadService ?: remember { MediaUploadService(context, com.example.data.repository.StorageRepository(context)) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 10)
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            selectedMediaUris = uris
+            coroutineScope.launch {
+                isUploadingMedia = true
+                try {
+                    val uploaded = uris.mapNotNull { uri ->
+                        val res = uploadService.uploadImageUri(uri)
+                        res.getOrNull()
+                    }
+                    if (uploaded.isNotEmpty()) {
+                        uploadedMediaUrls = uploaded
+                        mediaUrlInput = uploaded.first()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Failed to upload image: ${e.message}", Toast.LENGTH_SHORT).show()
+                } finally {
+                    isUploadingMedia = false
+                }
+            }
+        }
+    }
 
     val isPrivate = currentGroup.privacy.equals("Private", ignoreCase = true)
     val canViewFeed = !isPrivate || isJoined || isCreator
@@ -959,16 +1000,18 @@ fun GroupDetailView(
 
                     Button(
                         onClick = {
-                            if (postText.isNotBlank() || mediaUrlInput.isNotBlank()) {
+                            val finalMediaList = if (uploadedMediaUrls.isNotEmpty()) uploadedMediaUrls else if (mediaUrlInput.isNotBlank()) listOf(mediaUrlInput.trim()) else emptyList()
+                            val firstMedia = finalMediaList.firstOrNull() ?: ""
+                            if (postText.isNotBlank() || finalMediaList.isNotEmpty()) {
                                 val newPost = PostItem(
                                     id = "post_" + UUID.randomUUID().toString().take(8),
                                     authorId = currentUid,
                                     authorName = displayName,
                                     authorAvatarUrl = userAvatar,
                                     content = postText.trim(),
-                                    mediaUrl = mediaUrlInput.trim(),
-                                    mediaUrls = if (mediaUrlInput.isNotBlank()) listOf(mediaUrlInput.trim()) else emptyList(),
-                                    mediaType = if (mediaUrlInput.isNotBlank()) "photo" else "text",
+                                    mediaUrl = firstMedia,
+                                    mediaUrls = finalMediaList,
+                                    mediaType = if (finalMediaList.isNotEmpty()) "photo" else "text",
                                     groupId = currentGroup.id,
                                     audience = "Group",
                                     createdAt = System.currentTimeMillis()
@@ -976,14 +1019,24 @@ fun GroupDetailView(
                                 postRepository.createPost(newPost)
                                 postText = ""
                                 mediaUrlInput = ""
+                                uploadedMediaUrls = emptyList()
+                                selectedMediaUris = emptyList()
                                 showCreatePostSheet = false
                                 Toast.makeText(context, "Posted in ${currentGroup.name}!", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        enabled = postText.isNotBlank() || mediaUrlInput.isNotBlank(),
+                        enabled = (postText.isNotBlank() || uploadedMediaUrls.isNotEmpty() || mediaUrlInput.isNotBlank()) && !isUploadingMedia,
                         shape = RoundedCornerShape(20.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2))
                     ) {
+                        if (isUploadingMedia) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
                         Text("Post", fontWeight = FontWeight.Bold)
                     }
                 }
@@ -1033,7 +1086,7 @@ fun GroupDetailView(
                     placeholder = { Text("What's on your mind?") },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(140.dp),
+                        .height(120.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color.Transparent,
@@ -1043,45 +1096,115 @@ fun GroupDetailView(
                     )
                 )
 
-                if (mediaUrlInput.isNotBlank()) {
+                if (isUploadingMedia) {
                     Spacer(modifier = Modifier.height(10.dp))
-                    Box(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFEBF5FF), RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        AsyncImage(
-                            model = mediaUrlInput,
-                            contentDescription = "Photo",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color(0xFF1877F2))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Uploading selected photos...", fontSize = 13.sp, color = Color(0xFF1877F2), fontWeight = FontWeight.Medium)
+                    }
+                }
+
+                val allPhotosToShow = if (uploadedMediaUrls.isNotEmpty()) uploadedMediaUrls else if (mediaUrlInput.isNotBlank()) listOf(mediaUrlInput) else emptyList()
+                if (allPhotosToShow.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(allPhotosToShow) { imgUrl ->
+                            Box(
+                                modifier = Modifier
+                                    .size(110.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                            ) {
+                                AsyncImage(
+                                    model = imgUrl,
+                                    contentDescription = "Photo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                IconButton(
+                                    onClick = {
+                                        uploadedMediaUrls = uploadedMediaUrls.filter { it != imgUrl }
+                                        if (mediaUrlInput == imgUrl) mediaUrlInput = ""
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(24.dp)
+                                        .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Button(
-                    onClick = { showMediaUrlDialog = true },
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFF0F2F5),
-                        contentColor = Color(0xFF050505)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Image,
-                        contentDescription = null,
-                        tint = Color(0xFF45BD62),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (mediaUrlInput.isNotBlank()) "Change Photo URL" else "Add Photo URL",
-                        fontWeight = FontWeight.Medium
-                    )
+                    Button(
+                        onClick = {
+                            photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE7F3FF),
+                            contentColor = Color(0xFF1877F2)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AddPhotoAlternate,
+                            contentDescription = null,
+                            tint = Color(0xFF1877F2),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Photo/Video",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    Button(
+                        onClick = { showMediaUrlDialog = true },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFF0F2F5),
+                            contentColor = Color(0xFF050505)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Image,
+                            contentDescription = null,
+                            tint = Color(0xFF45BD62),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Paste URL",
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 13.sp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))

@@ -193,19 +193,25 @@ class AudioRecordingManager(private val context: Context) {
     private var recorder: MediaRecorder? = null
     private var currentAudioFile: File? = null
     private var recordingStartTime = 0L
+    private var isRecording = false
 
+    @Synchronized
     fun startRecording(): Boolean {
+        if (isRecording) {
+            cancelRecording()
+        }
         return try {
             val audioDir = File(context.cacheDir, "audio_notes").apply { mkdirs() }
             val file = File(audioDir, "voice_${System.currentTimeMillis()}.m4a")
             currentAudioFile = file
 
-            recorder = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val rec = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 MediaRecorder(context)
             } else {
                 @Suppress("DEPRECATION")
                 MediaRecorder()
-            }).apply {
+            }
+            rec.apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
@@ -215,43 +221,88 @@ class AudioRecordingManager(private val context: Context) {
                 prepare()
                 start()
             }
+            recorder = rec
             recordingStartTime = System.currentTimeMillis()
+            isRecording = true
             true
         } catch (e: Exception) {
-            Log.e("AudioRecordingManager", "Failed to start recording: ${e.message}")
+            Log.w("AudioRecordingManager", "Could not start audio recording: ${e.message}")
+            cleanup()
             false
         }
     }
 
+    @Synchronized
     fun stopRecording(): File? {
+        if (!isRecording || recorder == null) {
+            cleanup()
+            return null
+        }
+        val duration = System.currentTimeMillis() - recordingStartTime
+        val activeRecorder = recorder
+        val audioFile = currentAudioFile
+        recorder = null
+        isRecording = false
+
         return try {
-            recorder?.stop()
-            recorder?.release()
-            recorder = null
-            val duration = System.currentTimeMillis() - recordingStartTime
-            if (duration >= 500 && currentAudioFile != null && currentAudioFile!!.exists() && currentAudioFile!!.length() > 0) {
-                currentAudioFile
-            } else {
-                currentAudioFile?.delete()
+            if (duration < 600) {
+                // Short tap: MediaRecorder cannot safely stop before writing headers without throwing -1007
+                try {
+                    activeRecorder?.reset()
+                } catch (ignored: Exception) {}
+                try {
+                    activeRecorder?.release()
+                } catch (ignored: Exception) {}
+                audioFile?.delete()
                 null
+            } else {
+                try {
+                    activeRecorder?.stop()
+                } catch (e: RuntimeException) {
+                    Log.w("AudioRecordingManager", "MediaRecorder stop handled gracefully: ${e.message}")
+                } finally {
+                    try {
+                        activeRecorder?.release()
+                    } catch (ignored: Exception) {}
+                }
+                if (audioFile != null && audioFile.exists() && audioFile.length() > 100) {
+                    audioFile
+                } else {
+                    audioFile?.delete()
+                    null
+                }
             }
         } catch (e: Exception) {
-            Log.e("AudioRecordingManager", "Failed to stop recording: ${e.message}")
-            currentAudioFile?.delete()
+            Log.w("AudioRecordingManager", "Handled stop recording exception: ${e.message}")
+            try {
+                activeRecorder?.release()
+            } catch (ignored: Exception) {}
+            audioFile?.delete()
             null
         }
     }
 
+    @Synchronized
     fun cancelRecording() {
+        isRecording = false
+        val activeRecorder = recorder
+        recorder = null
         try {
-            recorder?.stop()
-            recorder?.release()
-            recorder = null
+            activeRecorder?.reset()
+        } catch (ignored: Exception) {}
+        try {
+            activeRecorder?.release()
+        } catch (ignored: Exception) {}
+        cleanup()
+    }
+
+    private fun cleanup() {
+        recorder = null
+        isRecording = false
+        try {
             currentAudioFile?.delete()
-            currentAudioFile = null
-        } catch (e: Exception) {
-            // Ignore
-        }
+        } catch (ignored: Exception) {}
+        currentAudioFile = null
     }
 }
 

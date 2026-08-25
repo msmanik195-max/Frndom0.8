@@ -1069,4 +1069,131 @@ class UserRepository(private val context: Context) {
             }
         }
     }
+
+    fun sendFriendRequest(currentUserId: String, targetUserId: String) {
+        if (currentUserId.isBlank() || targetUserId.isBlank() || currentUserId == targetUserId || dbRef == null) return
+
+        dbRef?.child(currentUserId)?.child("friendRequestsSentMap")?.child(targetUserId)?.setValue(true)
+        dbRef?.child(targetUserId)?.child("friendRequestsReceivedMap")?.child(currentUserId)?.setValue(true)
+
+        val sender: UserProfile? = getLocalUserProfile(currentUserId)
+        val senderName = if (sender != null && sender.fullName.isNotBlank()) {
+            sender.fullName
+        } else if (sender != null && (sender.firstName.isNotBlank() || sender.lastName.isNotBlank())) {
+            "${sender.firstName} ${sender.lastName}".trim()
+        } else {
+            "Someone"
+        }
+        val senderAvatar = sender?.profilePictureUrl ?: ""
+
+        NotificationRepository(context).addNotification(
+            com.example.data.model.NotificationItem(
+                recipientId = targetUserId,
+                senderId = currentUserId,
+                senderName = senderName,
+                senderAvatarUrl = senderAvatar,
+                type = "friend_request",
+                content = "sent you a friend request.",
+                timestamp = System.currentTimeMillis()
+            )
+        )
+    }
+
+    fun cancelFriendRequest(currentUserId: String, targetUserId: String) {
+        if (currentUserId.isBlank() || targetUserId.isBlank() || dbRef == null) return
+
+        dbRef?.child(currentUserId)?.child("friendRequestsSentMap")?.child(targetUserId)?.removeValue()
+        dbRef?.child(targetUserId)?.child("friendRequestsReceivedMap")?.child(currentUserId)?.removeValue()
+    }
+
+    fun acceptFriendRequest(currentUserId: String, requesterUserId: String) {
+        if (currentUserId.isBlank() || requesterUserId.isBlank() || dbRef == null) return
+
+        // 1. Clear request maps
+        dbRef?.child(currentUserId)?.child("friendRequestsReceivedMap")?.child(requesterUserId)?.removeValue()
+        dbRef?.child(requesterUserId)?.child("friendRequestsSentMap")?.child(currentUserId)?.removeValue()
+
+        // 2. Set friends maps
+        dbRef?.child(currentUserId)?.child("friendsMap")?.child(requesterUserId)?.setValue(true)
+        dbRef?.child(requesterUserId)?.child("friendsMap")?.child(currentUserId)?.setValue(true)
+
+        // 3. Update friends count
+        dbRef?.child(currentUserId)?.child("friendsCount")?.get()?.addOnSuccessListener { snap ->
+            val count = (snap.getValue(Int::class.java) ?: 0) + 1
+            dbRef?.child(currentUserId)?.child("friendsCount")?.setValue(count)
+        }
+        dbRef?.child(requesterUserId)?.child("friendsCount")?.get()?.addOnSuccessListener { snap ->
+            val count = (snap.getValue(Int::class.java) ?: 0) + 1
+            dbRef?.child(requesterUserId)?.child("friendsCount")?.setValue(count)
+        }
+
+        // 4. Mutual follow connection & follower counts
+        dbRef?.child(currentUserId)?.child("followingMap")?.child(requesterUserId)?.setValue(true)
+        dbRef?.child(requesterUserId)?.child("followersMap")?.child(currentUserId)?.setValue(true)
+        dbRef?.child(requesterUserId)?.child("followingMap")?.child(currentUserId)?.setValue(true)
+        dbRef?.child(currentUserId)?.child("followersMap")?.child(requesterUserId)?.setValue(true)
+
+        dbRef?.child(currentUserId)?.child("followersCount")?.get()?.addOnSuccessListener { snap ->
+            val count = (snap.getValue(Int::class.java) ?: 0) + 1
+            dbRef?.child(currentUserId)?.child("followersCount")?.setValue(count)
+        }
+        dbRef?.child(currentUserId)?.child("followingCount")?.get()?.addOnSuccessListener { snap ->
+            val count = (snap.getValue(Int::class.java) ?: 0) + 1
+            dbRef?.child(currentUserId)?.child("followingCount")?.setValue(count)
+        }
+        dbRef?.child(requesterUserId)?.child("followersCount")?.get()?.addOnSuccessListener { snap ->
+            val count = (snap.getValue(Int::class.java) ?: 0) + 1
+            dbRef?.child(requesterUserId)?.child("followersCount")?.setValue(count)
+        }
+        dbRef?.child(requesterUserId)?.child("followingCount")?.get()?.addOnSuccessListener { snap ->
+            val count = (snap.getValue(Int::class.java) ?: 0) + 1
+            dbRef?.child(requesterUserId)?.child("followingCount")?.setValue(count)
+        }
+
+        // 5. Send accept notification
+        val sender: UserProfile? = getLocalUserProfile(currentUserId)
+        val senderName = if (sender != null && sender.fullName.isNotBlank()) {
+            sender.fullName
+        } else if (sender != null && (sender.firstName.isNotBlank() || sender.lastName.isNotBlank())) {
+            "${sender.firstName} ${sender.lastName}".trim()
+        } else {
+            "Someone"
+        }
+        val senderAvatar = sender?.profilePictureUrl ?: ""
+
+        NotificationRepository(context).addNotification(
+            com.example.data.model.NotificationItem(
+                recipientId = requesterUserId,
+                senderId = currentUserId,
+                senderName = senderName,
+                senderAvatarUrl = senderAvatar,
+                type = "friend_accept",
+                content = "accepted your friend request.",
+                timestamp = System.currentTimeMillis()
+            )
+        )
+    }
+
+    fun declineFriendRequest(currentUserId: String, requesterUserId: String) {
+        if (currentUserId.isBlank() || requesterUserId.isBlank() || dbRef == null) return
+
+        dbRef?.child(currentUserId)?.child("friendRequestsReceivedMap")?.child(requesterUserId)?.removeValue()
+        dbRef?.child(requesterUserId)?.child("friendRequestsSentMap")?.child(currentUserId)?.removeValue()
+    }
+
+    fun unfriend(currentUserId: String, targetUserId: String) {
+        if (currentUserId.isBlank() || targetUserId.isBlank() || dbRef == null) return
+
+        dbRef?.child(currentUserId)?.child("friendsMap")?.child(targetUserId)?.removeValue()
+        dbRef?.child(targetUserId)?.child("friendsMap")?.child(currentUserId)?.removeValue()
+
+        dbRef?.child(currentUserId)?.child("friendsCount")?.get()?.addOnSuccessListener { snap ->
+            val count = (snap.getValue(Int::class.java) ?: 1) - 1
+            dbRef?.child(currentUserId)?.child("friendsCount")?.setValue(count.coerceAtLeast(0))
+        }
+        dbRef?.child(targetUserId)?.child("friendsCount")?.get()?.addOnSuccessListener { snap ->
+            val count = (snap.getValue(Int::class.java) ?: 1) - 1
+            dbRef?.child(targetUserId)?.child("friendsCount")?.setValue(count.coerceAtLeast(0))
+        }
+    }
 }

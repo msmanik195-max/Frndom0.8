@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
@@ -70,6 +71,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -170,6 +173,12 @@ fun FacebookProfileView(
     val liveProfile by userRepository.getUserProfileFlow(targetUser.uid).collectAsState(initial = targetUser)
     val user = liveProfile ?: targetUser
 
+    // Current logged-in user profile
+    val liveCurrentUser by userRepository.getUserProfileFlow(currentUserId).collectAsState(initial = null)
+    val isFriend = liveCurrentUser?.friendsMap?.get(user.uid) == true || user.friendsMap[currentUserId] == true
+    val isRequestReceived = liveCurrentUser?.friendRequestsReceivedMap?.get(user.uid) == true
+    val isRequestSent = liveCurrentUser?.friendRequestsSentMap?.get(user.uid) == true
+
     // If a sub screen is open (e.g. Dashboard, Pages, Groups, Settings), display it directly
     when (currentSubScreen) {
         ProfileSubScreen.DASHBOARD -> {
@@ -242,6 +251,7 @@ fun FacebookProfileView(
 
     // Live users for following/friends
     val allUsers by userRepository.getAllUsersFlow().collectAsState(initial = emptyList())
+    val friendsUserList = allUsers.filter { user.friendsMap[it.uid] == true || (user.friendsMap.isEmpty() && user.followingMap[it.uid] == true) }.take(30)
     val followingUserList = allUsers.filter { user.followingMap[it.uid] == true }.take(20)
 
     val isFollowing = user.followersMap[currentUserId] == true
@@ -480,8 +490,8 @@ fun FacebookProfileView(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    StatCounter(title = "Friends", count = if (user.friendsCount > 0) user.friendsCount else user.friendsMap.size)
                     StatCounter(title = "Followers", count = user.followersCount)
-                    StatCounter(title = "Posts", count = userPosts.size)
                     StatCounter(title = "Following", count = user.followingCount)
                 }
 
@@ -538,40 +548,141 @@ fun FacebookProfileView(
                         }
                     }
                 } else {
+                    var showFriendDropdown by remember { mutableStateOf(false) }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
-                            onClick = { userRepository.toggleFollow(currentUserId, user.uid) },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isFollowing) Color(0xFFE4E6EB) else Color(0xFF0866FF),
-                                contentColor = if (isFollowing) Color(0xFF050505) else Color.White
-                            ),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(
-                                imageVector = if (isFollowing) Icons.Default.Check else Icons.Default.PersonAdd,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (isFollowing) "Following" else "Follow",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                        }
+                        if (isFriend) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                Button(
+                                    onClick = { showFriendDropdown = true },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFE4E6EB),
+                                        contentColor = Color(0xFF0866FF)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = "Friends", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                }
 
-                        if (isFollowing) {
+                                DropdownMenu(
+                                    expanded = showFriendDropdown,
+                                    onDismissRequest = { showFriendDropdown = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = Color.Red, modifier = Modifier.size(18.dp))
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text("Unfriend", color = Color.Red)
+                                            }
+                                        },
+                                        onClick = {
+                                            showFriendDropdown = false
+                                            userRepository.unfriend(currentUserId, user.uid)
+                                        }
+                                    )
+                                }
+                            }
+
                             Button(
                                 onClick = { onMessageClick(user) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF0866FF),
                                     contentColor = Color.White
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(imageVector = Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = "Message", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                        } else if (isRequestReceived) {
+                            Button(
+                                onClick = { userRepository.acceptFriendRequest(currentUserId, user.uid) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF0866FF),
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = "Confirm", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+
+                            Button(
+                                onClick = { userRepository.declineFriendRequest(currentUserId, user.uid) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFE4E6EB),
+                                    contentColor = Color(0xFF050505)
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = "Delete", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                        } else if (isRequestSent) {
+                            Button(
+                                onClick = { userRepository.cancelFriendRequest(currentUserId, user.uid) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFE4E6EB),
+                                    contentColor = Color(0xFF050505)
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = "Cancel Request", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+
+                            Button(
+                                onClick = { onMessageClick(user) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF0866FF),
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(imageVector = Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = "Message", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                        } else {
+                            Button(
+                                onClick = { userRepository.sendFriendRequest(currentUserId, user.uid) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF0866FF),
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PersonAdd,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Add Friend",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
+
+                            Button(
+                                onClick = { onMessageClick(user) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFE4E6EB),
+                                    contentColor = Color(0xFF050505)
                                 ),
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -1062,8 +1173,8 @@ fun FacebookProfileView(
                     }
 
                     4 -> { // Friends Tab
-                        if (followingUserList.isEmpty()) {
-                            EmptyTabContent(message = "No friends or followed users yet")
+                        if (friendsUserList.isEmpty()) {
+                            EmptyTabContent(message = "No friends connected yet")
                         } else {
                             Column(
                                 modifier = Modifier
@@ -1071,7 +1182,7 @@ fun FacebookProfileView(
                                     .padding(16.dp)
                             ) {
                                 Text(
-                                    text = "Friends (${followingUserList.size})",
+                                    text = "Friends (${friendsUserList.size})",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF050505)
@@ -1084,7 +1195,7 @@ fun FacebookProfileView(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    followingUserList.forEach { fUser ->
+                                    friendsUserList.forEach { fUser ->
                                         val fName = if (fUser.fullName.isNotBlank()) fUser.fullName else "${fUser.firstName} ${fUser.lastName}".trim()
                                         Column(
                                             modifier = Modifier

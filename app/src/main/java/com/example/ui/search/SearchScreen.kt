@@ -59,7 +59,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -97,6 +99,43 @@ fun SearchScreen(
     val context = LocalContext.current
     val groupPageRepository = remember { GroupPageRepository(context) }
     val searchHistoryRepository = remember { SearchHistoryRepository(context) }
+    val storageRepository = remember { com.example.data.repository.StorageRepository(context) }
+    val mediaUploadService = remember { com.example.data.service.MediaUploadService(context, storageRepository) }
+
+    var selectedPage by remember { mutableStateOf<PageItem?>(null) }
+    var selectedGroup by remember { mutableStateOf<GroupItem?>(null) }
+
+    if (selectedPage != null) {
+        val allUsers by userRepository.getAllUsersFlow().collectAsState(initial = emptyList())
+        val currentUserProfile = remember(allUsers, currentUserId) { allUsers.find { it.uid == currentUserId } }
+        com.example.ui.menu.PageDetailView(
+            page = selectedPage!!,
+            userProfile = currentUserProfile,
+            groupPageRepository = groupPageRepository,
+            postRepository = postRepository,
+            mediaUploadService = mediaUploadService,
+            onBack = { selectedPage = null },
+            onUserClick = onUserClick,
+            modifier = modifier
+        )
+        return
+    }
+
+    if (selectedGroup != null) {
+        val allUsers by userRepository.getAllUsersFlow().collectAsState(initial = emptyList())
+        val currentUserProfile = remember(allUsers, currentUserId) { allUsers.find { it.uid == currentUserId } }
+        com.example.ui.menu.GroupDetailView(
+            group = selectedGroup!!,
+            userProfile = currentUserProfile,
+            groupPageRepository = groupPageRepository,
+            postRepository = postRepository,
+            mediaUploadService = mediaUploadService,
+            onBack = { selectedGroup = null },
+            onUserClick = onUserClick,
+            modifier = modifier
+        )
+        return
+    }
 
     BackHandler {
         onBackClick()
@@ -107,7 +146,8 @@ fun SearchScreen(
     val tabs = listOf("All", "Posts", "Reels", "People", "Pages", "Groups")
 
     val allUsers by userRepository.getAllUsersFlow().collectAsState(initial = emptyList())
-    val currentUserProfile = remember(allUsers, currentUserId) { allUsers.find { it.uid == currentUserId } }
+    val liveCurrentUser by userRepository.getUserProfileFlow(currentUserId).collectAsState(initial = null)
+    val currentUserProfile = liveCurrentUser ?: remember(allUsers, currentUserId) { allUsers.find { it.uid == currentUserId } }
     val allPosts by postRepository.postsFlow.collectAsState()
     val allPages by groupPageRepository.pagesFlow.collectAsState()
     val allGroups by groupPageRepository.groupsFlow.collectAsState()
@@ -350,7 +390,7 @@ fun SearchScreen(
                                 page = page,
                                 isFollowed = followedPages[page.id] == true,
                                 onToggleFollow = { followedPages[page.id] = !(followedPages[page.id] ?: false) },
-                                onClick = { searchQuery = page.name }
+                                onClick = { selectedPage = page }
                             )
                         }
 
@@ -393,7 +433,7 @@ fun SearchScreen(
                                 group = group,
                                 isJoined = joinedGroups[group.id] == true,
                                 onToggleJoin = { joinedGroups[group.id] = !(joinedGroups[group.id] ?: false) },
-                                onClick = { searchQuery = group.name }
+                                onClick = { selectedGroup = group }
                             )
                         }
                     }
@@ -478,8 +518,9 @@ fun SearchScreen(
                                     UserSearchRow(
                                         user = user,
                                         currentUserId = currentUserId,
-                                        onUserClick = { onUserClick(user) },
-                                        onToggleFollow = { userRepository.toggleFollow(currentUserId, user.uid) }
+                                        currentUserProfile = currentUserProfile,
+                                        userRepository = userRepository,
+                                        onUserClick = { onUserClick(user) }
                                     )
                                 }
                             }
@@ -494,7 +535,7 @@ fun SearchScreen(
                                         page = page,
                                         isFollowed = followedPages[page.id] == true,
                                         onToggleFollow = { followedPages[page.id] = !(followedPages[page.id] ?: false) },
-                                        onClick = {}
+                                        onClick = { selectedPage = page }
                                     )
                                 }
                             }
@@ -509,7 +550,7 @@ fun SearchScreen(
                                         group = group,
                                         isJoined = joinedGroups[group.id] == true,
                                         onToggleJoin = { joinedGroups[group.id] = !(joinedGroups[group.id] ?: false) },
-                                        onClick = {}
+                                        onClick = { selectedGroup = group }
                                     )
                                 }
                             }
@@ -625,8 +666,9 @@ fun SearchScreen(
                                     UserSearchRow(
                                         user = user,
                                         currentUserId = currentUserId,
-                                        onUserClick = { onUserClick(user) },
-                                        onToggleFollow = { userRepository.toggleFollow(currentUserId, user.uid) }
+                                        currentUserProfile = currentUserProfile,
+                                        userRepository = userRepository,
+                                        onUserClick = { onUserClick(user) }
                                     )
                                 }
                             }
@@ -643,7 +685,7 @@ fun SearchScreen(
                                         page = page,
                                         isFollowed = followedPages[page.id] == true,
                                         onToggleFollow = { followedPages[page.id] = !(followedPages[page.id] ?: false) },
-                                        onClick = {}
+                                        onClick = { selectedPage = page }
                                     )
                                 }
                             }
@@ -660,7 +702,7 @@ fun SearchScreen(
                                         group = group,
                                         isJoined = joinedGroups[group.id] == true,
                                         onToggleJoin = { joinedGroups[group.id] = !(joinedGroups[group.id] ?: false) },
-                                        onClick = {}
+                                        onClick = { selectedGroup = group }
                                     )
                                 }
                             }
@@ -704,11 +746,16 @@ private fun SearchSectionHeader(
 private fun UserSearchRow(
     user: UserProfile,
     currentUserId: String,
-    onUserClick: () -> Unit,
-    onToggleFollow: () -> Unit
+    currentUserProfile: UserProfile?,
+    userRepository: UserRepository,
+    onUserClick: () -> Unit
 ) {
+    val coroutineScope = rememberCoroutineScope()
     val displayName = user.fullName.ifBlank { "${user.firstName} ${user.lastName}".trim().ifBlank { "User" } }
-    val isFollowing = user.followersMap.containsKey(currentUserId)
+    
+    val isFriend = currentUserProfile?.friendsMap?.get(user.uid) == true
+    val isRequestSent = currentUserProfile?.friendRequestsSentMap?.get(user.uid) == true
+    val isRequestReceived = currentUserProfile?.friendRequestsReceivedMap?.get(user.uid) == true
 
     Row(
         modifier = Modifier
@@ -760,6 +807,7 @@ private fun UserSearchRow(
             }
             val subtext = when {
                 user.currentCity.isNotBlank() -> "Lives in ${user.currentCity}"
+                user.friendsCount > 0 -> "${user.friendsCount} friends"
                 user.email.isNotBlank() -> user.email
                 else -> "${user.followersCount} followers"
             }
@@ -770,22 +818,101 @@ private fun UserSearchRow(
             )
         }
 
-        if (user.uid != currentUserId) {
-            Button(
-                onClick = onToggleFollow,
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isFollowing) Color(0xFFE4E6EB) else Color(0xFF1877F2),
-                    contentColor = if (isFollowing) Color(0xFF050505) else Color.White
-                ),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                modifier = Modifier.height(34.dp)
-            ) {
-                Text(
-                    text = if (isFollowing) "Following" else "Follow",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
+        if (user.uid != currentUserId && currentUserId.isNotBlank()) {
+            when {
+                isFriend -> {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFE4E6EB),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color(0xFF050505),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Friends",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF050505)
+                            )
+                        }
+                    }
+                }
+                isRequestReceived -> {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                userRepository.acceptFriendRequest(currentUserId, user.uid)
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2)),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Text(
+                            text = "Confirm",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+                isRequestSent -> {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                userRepository.cancelFriendRequest(currentUserId, user.uid)
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE4E6EB)),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF050505)
+                        )
+                    }
+                }
+                else -> {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                userRepository.sendFriendRequest(currentUserId, user.uid)
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2)),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PersonAdd,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Add Friend",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
             }
         }
     }

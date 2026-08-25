@@ -63,6 +63,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.example.ui.components.ExpandableHashtagText
 import com.example.ui.components.HashtagText
 import com.example.ui.components.PostOptionsBottomSheet
 import com.example.ui.components.EditPostDialog
@@ -637,12 +638,13 @@ fun PostCardItem(
             } else {
                 // Normal Text Post
                 if (post.content.isNotEmpty()) {
-                    HashtagText(
+                    ExpandableHashtagText(
                         text = post.content,
                         fontSize = 15.sp,
                         color = Color(0xFF050505),
                         hashtagColor = Color(0xFF1877F2),
                         lineHeight = 21.sp,
+                        collapsedMaxLines = 3,
                         textAlign = when (post.textAlign) {
                             "left" -> TextAlign.Left
                             "right" -> TextAlign.Right
