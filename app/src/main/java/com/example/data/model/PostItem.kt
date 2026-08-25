@@ -41,6 +41,8 @@ data class PostItem(
     val sharesCount: Int = 0,
     val likedByMap: Map<String, Boolean> = emptyMap(),
     val reactionsMap: Map<String, String> = emptyMap(), // userId -> "LIKE", "LOVE", etc.
+    val viewsCount: Int = 0,
+    val viewedByMap: Map<String, Boolean> = emptyMap(), // viewerId -> true (unique views count)
     val isAuthorVerified: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 ) {
@@ -101,8 +103,10 @@ data class PostItem(
             "likesCount" to likesCount,
             "commentsCount" to commentsCount,
             "sharesCount" to sharesCount,
+            "viewsCount" to viewsCount,
             "likedByMap" to likedByMap,
             "reactionsMap" to reactionsMap,
+            "viewedByMap" to viewedByMap,
             "isAuthorVerified" to isAuthorVerified,
             "createdAt" to createdAt
         )

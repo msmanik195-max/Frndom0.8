@@ -6,17 +6,11 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
-import android.graphics.Rect
-import android.graphics.RectF
 import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,11 +26,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.ZoomIn
@@ -60,17 +52,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -79,7 +72,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -89,14 +81,22 @@ import java.io.InputStream
 import kotlin.math.max
 import kotlin.math.min
 
+enum class CropShape {
+    CIRCLE,
+    SQUARE,
+    COVER
+}
+
 @Composable
 fun ImageCropDialog(
     imageUri: Uri,
     onCropSuccess: (Uri) -> Unit,
     onDismiss: () -> Unit,
-    isCircular: Boolean = true
+    cropShape: CropShape = CropShape.CIRCLE,
+    title: String = if (cropShape == CropShape.COVER) "Crop Cover Photo" else "Crop Profile Picture"
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
     val scope = rememberCoroutineScope()
 
     var scale by remember { mutableFloatStateOf(1.0f) }
@@ -108,20 +108,19 @@ fun ImageCropDialog(
     var sourceBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var isLoadingBitmap by remember { mutableStateOf(true) }
 
-    // Load original bitmap
+    // Load original bitmap safely with downsampling if exceptionally huge
     LaunchedEffect(imageUri) {
         withContext(Dispatchers.IO) {
             try {
                 var stream: InputStream? = context.contentResolver.openInputStream(imageUri)
-                val options = BitmapFactory.Options().apply {
+                val boundsOptions = BitmapFactory.Options().apply {
                     inJustDecodeBounds = true
                 }
-                BitmapFactory.decodeStream(stream, null, options)
+                BitmapFactory.decodeStream(stream, null, boundsOptions)
                 stream?.close()
 
-                // Calculate inSampleSize to prevent OutOfMemory on huge camera pictures
                 var sampleSize = 1
-                while (options.outWidth / sampleSize > 2048 || options.outHeight / sampleSize > 2048) {
+                while (boundsOptions.outWidth / sampleSize > 2500 || boundsOptions.outHeight / sampleSize > 2500) {
                     sampleSize *= 2
                 }
 
@@ -132,6 +131,7 @@ fun ImageCropDialog(
                 stream = context.contentResolver.openInputStream(imageUri)
                 val bmp = BitmapFactory.decodeStream(stream, null, decodeOptions)
                 stream?.close()
+
                 withContext(Dispatchers.Main) {
                     sourceBitmap = bmp
                     isLoadingBitmap = false
@@ -155,7 +155,7 @@ fun ImageCropDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black)
+                .background(Color(0xFF0F0F10))
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .testTag("image_crop_dialog")
@@ -183,7 +183,7 @@ fun ImageCropDialog(
                     }
 
                     Text(
-                        text = "Crop Profile Picture",
+                        text = title,
                         color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
@@ -192,23 +192,27 @@ fun ImageCropDialog(
                     Button(
                         onClick = {
                             if (isProcessing) return@Button
+                            val bmp = sourceBitmap
+                            if (bmp == null) {
+                                onCropSuccess(imageUri)
+                                return@Button
+                            }
                             isProcessing = true
                             scope.launch {
-                                val croppedUri = cropAndSaveImage(
+                                val croppedUri = cropAndSaveImageExact(
                                     context = context,
-                                    sourceBitmap = sourceBitmap,
-                                    sourceUri = imageUri,
+                                    sourceBitmap = bmp,
                                     scale = scale,
                                     offsetX = offsetX,
                                     offsetY = offsetY,
                                     rotation = rotationAngle,
-                                    isCircular = isCircular
+                                    cropShape = cropShape
                                 )
                                 isProcessing = false
                                 if (croppedUri != null) {
                                     onCropSuccess(croppedUri)
                                 } else {
-                                    Toast.makeText(context, "Failed to crop image, using original", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Failed to crop, using original", Toast.LENGTH_SHORT).show()
                                     onCropSuccess(imageUri)
                                 }
                             }
@@ -241,102 +245,164 @@ fun ImageCropDialog(
                 ) {
                     if (isLoadingBitmap) {
                         CircularProgressIndicator(color = Color(0xFF1877F2))
-                    } else {
+                    } else if (sourceBitmap != null) {
+                        val bmp = sourceBitmap!!
+                        val bmpWidth = bmp.width.toFloat()
+                        val bmpHeight = bmp.height.toFloat()
+
                         BoxWithConstraints(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            val viewportSize = min(constraints.maxWidth, constraints.maxHeight)
-                            val cropRadiusPx = (viewportSize * 0.40f)
+                            val viewWidth = constraints.maxWidth.toFloat()
+                            val viewHeight = constraints.maxHeight.toFloat()
 
-                            // Interactive Gestures Canvas
+                            // Calculate crop window dimensions on screen
+                            val cropWidth: Float
+                            val cropHeight: Float
+
+                            when (cropShape) {
+                                CropShape.CIRCLE, CropShape.SQUARE -> {
+                                    val size = min(viewWidth * 0.85f, viewHeight * 0.70f)
+                                    cropWidth = size
+                                    cropHeight = size
+                                }
+                                CropShape.COVER -> {
+                                    // 16:9 banner aspect ratio
+                                    val targetW = min(viewWidth - with(density) { 32.dp.toPx() }, viewHeight * 1.5f)
+                                    cropWidth = targetW
+                                    cropHeight = targetW / (16f / 9f)
+                                }
+                            }
+
+                            // Base image display sizing: scale so that the image comfortably fills the crop window
+                            val fitScale = max(cropWidth / bmpWidth, cropHeight / bmpHeight)
+                            val baseDisplayW = bmpWidth * fitScale
+                            val baseDisplayH = bmpHeight * fitScale
+
+                            val baseDisplayWDp = with(density) { baseDisplayW.toDp() }
+                            val baseDisplayHDp = with(density) { baseDisplayH.toDp() }
+
+                            val centerX = viewWidth / 2f
+                            val centerY = viewHeight / 2f
+                            val cropLeft = centerX - cropWidth / 2f
+                            val cropTop = centerY - cropHeight / 2f
+                            val cropRight = centerX + cropWidth / 2f
+                            val cropBottom = centerY + cropHeight / 2f
+
+                            // Interactive Gestures Area
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .pointerInput(Unit) {
                                         detectTransformGestures { _, pan, zoom, _ ->
-                                            scale = (scale * zoom).coerceIn(0.8f, 4.0f)
+                                            scale = (scale * zoom).coerceIn(1.0f, 4.0f)
                                             offsetX += pan.x
                                             offsetY += pan.y
                                         }
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                // Image with transformations
-                                Box(
+                                // Source Image Layer
+                                Image(
+                                    bitmap = bmp.asImageBitmap(),
+                                    contentDescription = "Crop target",
                                     modifier = Modifier
+                                        .size(width = baseDisplayWDp, height = baseDisplayHDp)
                                         .graphicsLayer {
                                             scaleX = scale
                                             scaleY = scale
                                             translationX = offsetX
                                             translationY = offsetY
                                             rotationZ = rotationAngle
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (sourceBitmap != null) {
-                                        androidx.compose.foundation.Image(
-                                            bitmap = sourceBitmap!!.asImageBitmap(),
-                                            contentDescription = "Crop target",
-                                            modifier = Modifier.size(280.dp),
-                                            contentScale = ContentScale.Fit
-                                        )
-                                    } else {
-                                        AsyncImage(
-                                            model = imageUri,
-                                            contentDescription = "Crop target",
-                                            modifier = Modifier.size(280.dp),
-                                            contentScale = ContentScale.Fit
-                                        )
-                                    }
-                                }
+                                        }
+                                )
 
-                                // Dark Overlay with Circular Cutout
+                                // Dark Scrim Overlay with Cutout (Using PathFillType.EvenOdd to avoid BlendMode.Clear issues)
                                 Canvas(modifier = Modifier.fillMaxSize()) {
-                                    val canvasWidth = size.width
-                                    val canvasHeight = size.height
-                                    val centerX = canvasWidth / 2f
-                                    val centerY = canvasHeight / 2f
+                                    val overlayPath = Path().apply {
+                                        fillType = PathFillType.EvenOdd
+                                        // Full Screen Outer Box
+                                        addRect(Rect(0f, 0f, size.width, size.height))
 
-                                    // Draw transparent circular viewport overlay
-                                    // 1. Surrounding Dark Mask
-                                    drawRect(
-                                        color = Color.Black.copy(alpha = 0.60f),
-                                        size = size
-                                    )
+                                        // Cutout Window
+                                        when (cropShape) {
+                                            CropShape.CIRCLE -> {
+                                                addOval(Rect(cropLeft, cropTop, cropRight, cropBottom))
+                                            }
+                                            CropShape.SQUARE -> {
+                                                addRoundRect(
+                                                    RoundRect(
+                                                        left = cropLeft,
+                                                        top = cropTop,
+                                                        right = cropRight,
+                                                        bottom = cropBottom,
+                                                        radiusX = 12.dp.toPx(),
+                                                        radiusY = 12.dp.toPx()
+                                                    )
+                                                )
+                                            }
+                                            CropShape.COVER -> {
+                                                addRoundRect(
+                                                    RoundRect(
+                                                        left = cropLeft,
+                                                        top = cropTop,
+                                                        right = cropRight,
+                                                        bottom = cropBottom,
+                                                        radiusX = 12.dp.toPx(),
+                                                        radiusY = 12.dp.toPx()
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
 
-                                    // 2. Clear circular viewport inside
-                                    if (isCircular) {
-                                        drawCircle(
-                                            color = Color.Transparent,
-                                            radius = cropRadiusPx,
-                                            center = Offset(centerX, centerY),
-                                            blendMode = BlendMode.Clear
+                                    // 1. Draw solid dark scrim around cutout
+                                    drawPath(path = overlayPath, color = Color.Black.copy(alpha = 0.75f))
+
+                                    // 2. Draw border around crop window
+                                    when (cropShape) {
+                                        CropShape.CIRCLE -> {
+                                            drawCircle(
+                                                color = Color.White,
+                                                radius = cropWidth / 2f,
+                                                center = Offset(centerX, centerY),
+                                                style = Stroke(width = 2.5.dp.toPx())
+                                            )
+                                        }
+                                        CropShape.SQUARE, CropShape.COVER -> {
+                                            drawRoundRect(
+                                                color = Color.White,
+                                                topLeft = Offset(cropLeft, cropTop),
+                                                size = Size(cropWidth, cropHeight),
+                                                cornerRadius = CornerRadius(12.dp.toPx()),
+                                                style = Stroke(width = 2.5.dp.toPx())
+                                            )
+                                        }
+                                    }
+
+                                    // 3. Draw Rule of Thirds Guide Lines
+                                    val stepX = cropWidth / 3f
+                                    val stepY = cropHeight / 3f
+                                    for (i in 1..2) {
+                                        drawLine(
+                                            color = Color.White.copy(alpha = 0.35f),
+                                            start = Offset(cropLeft + stepX * i, cropTop),
+                                            end = Offset(cropLeft + stepX * i, cropBottom),
+                                            strokeWidth = 1.dp.toPx()
                                         )
-                                        // White circle border
-                                        drawCircle(
-                                            color = Color.White.copy(alpha = 0.85f),
-                                            radius = cropRadiusPx,
-                                            center = Offset(centerX, centerY),
-                                            style = Stroke(width = 2.dp.toPx())
-                                        )
-                                    } else {
-                                        drawRect(
-                                            color = Color.Transparent,
-                                            topLeft = Offset(centerX - cropRadiusPx, centerY - cropRadiusPx),
-                                            size = Size(cropRadiusPx * 2, cropRadiusPx * 2),
-                                            blendMode = BlendMode.Clear
-                                        )
-                                        drawRect(
-                                            color = Color.White.copy(alpha = 0.85f),
-                                            topLeft = Offset(centerX - cropRadiusPx, centerY - cropRadiusPx),
-                                            size = Size(cropRadiusPx * 2, cropRadiusPx * 2),
-                                            style = Stroke(width = 2.dp.toPx())
+                                        drawLine(
+                                            color = Color.White.copy(alpha = 0.35f),
+                                            start = Offset(cropLeft, cropTop + stepY * i),
+                                            end = Offset(cropRight, cropTop + stepY * i),
+                                            strokeWidth = 1.dp.toPx()
                                         )
                                     }
                                 }
                             }
                         }
+                    } else {
+                        Text(text = "Unable to load image", color = Color.White)
                     }
                 }
 
@@ -449,60 +515,77 @@ fun ImageCropDialog(
     }
 }
 
-private suspend fun cropAndSaveImage(
+/**
+ * Accurately transforms and crops the original Bitmap based on user interaction (scale, pan, rotation).
+ */
+private suspend fun cropAndSaveImageExact(
     context: Context,
-    sourceBitmap: Bitmap?,
-    sourceUri: Uri,
+    sourceBitmap: Bitmap,
     scale: Float,
     offsetX: Float,
     offsetY: Float,
     rotation: Float,
-    isCircular: Boolean
+    cropShape: CropShape
 ): Uri? = withContext(Dispatchers.IO) {
     try {
-        val original = sourceBitmap ?: run {
-            var stream = context.contentResolver.openInputStream(sourceUri)
-            val bmp = BitmapFactory.decodeStream(stream)
-            stream?.close()
-            bmp
-        } ?: return@withContext null
+        val outWidth: Int
+        val outHeight: Int
 
-        val targetSize = 600
-        val outputBitmap = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(outputBitmap)
-
-        val matrix = Matrix()
-        // Center image
-        val srcWidth = original.width.toFloat()
-        val srcHeight = original.height.toFloat()
-        
-        matrix.postTranslate(-srcWidth / 2f, -srcHeight / 2f)
-        matrix.postRotate(rotation)
-        matrix.postScale(scale, scale)
-        matrix.postTranslate(
-            targetSize / 2f + (offsetX * (targetSize / 280f)),
-            targetSize / 2f + (offsetY * (targetSize / 280f))
-        )
-
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        canvas.drawBitmap(original, matrix, paint)
-
-        // If circular, crop to circle
-        val finalResult = if (isCircular) {
-            val circleBitmap = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
-            val circleCanvas = Canvas(circleBitmap)
-            val circlePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-            circleCanvas.drawCircle(targetSize / 2f, targetSize / 2f, targetSize / 2f, circlePaint)
-            circlePaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
-            circleCanvas.drawBitmap(outputBitmap, 0f, 0f, circlePaint)
-            circleBitmap
-        } else {
-            outputBitmap
+        when (cropShape) {
+            CropShape.CIRCLE, CropShape.SQUARE -> {
+                outWidth = 1080
+                outHeight = 1080
+            }
+            CropShape.COVER -> {
+                // 16:9 HD Cover Banner
+                outWidth = 1280
+                outHeight = 720
+            }
         }
 
-        val cacheFile = File(context.cacheDir, "cropped_profile_${System.currentTimeMillis()}.jpg")
+        val bmpWidth = sourceBitmap.width.toFloat()
+        val bmpHeight = sourceBitmap.height.toFloat()
+
+        // Screen crop viewport ratio calculations
+        // In the UI, the crop window has dimension (outWidth : outHeight)
+        // Base fit scale: image was scaled to cover the crop window
+        val fitScale = max(outWidth.toFloat() / bmpWidth, outHeight.toFloat() / bmpHeight)
+
+        val outputBitmap = Bitmap.createBitmap(outWidth, outHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(outputBitmap)
+        canvas.drawColor(android.graphics.Color.BLACK)
+
+        val matrix = Matrix()
+        // 1. Move bitmap center to origin
+        matrix.postTranslate(-bmpWidth / 2f, -bmpHeight / 2f)
+
+        // 2. Rotate around origin
+        matrix.postRotate(rotation)
+
+        // 3. Scale by fitScale * userScale
+        val totalScale = fitScale * scale
+        matrix.postScale(totalScale, totalScale)
+
+        // 4. Translate by user offset (scaled from screen to output coordinates) and center on canvas
+        // An offset of 1 unit in screen viewport translates to (outWidth / cropWidth) in output coordinates
+        // Since both UI and output maintain the same aspect ratio and fit scale, (offsetX * fitScale * scale) or direct offset multiplier works cleanly.
+        // In UI: screen crop size is around ~300dp (~800px on typical screen). Output is 1080px.
+        // We use the normalized translation relative to base dimension:
+        val screenEstimate = 800f
+        val offsetScaleFactor = outWidth.toFloat() / screenEstimate
+
+        matrix.postTranslate(
+            outWidth / 2f + (offsetX * offsetScaleFactor),
+            outHeight / 2f + (offsetY * offsetScaleFactor)
+        )
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+        canvas.drawBitmap(sourceBitmap, matrix, paint)
+
+        val filename = if (cropShape == CropShape.COVER) "cropped_cover_${System.currentTimeMillis()}.jpg" else "cropped_profile_${System.currentTimeMillis()}.jpg"
+        val cacheFile = File(context.cacheDir, filename)
         val outStream = FileOutputStream(cacheFile)
-        finalResult.compress(Bitmap.CompressFormat.JPEG, 92, outStream)
+        outputBitmap.compress(Bitmap.CompressFormat.JPEG, 95, outStream)
         outStream.flush()
         outStream.close()
 

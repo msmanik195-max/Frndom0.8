@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudQueue
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Comment
+import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Group
@@ -68,6 +69,8 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -100,6 +103,7 @@ import com.example.data.repository.ChatRepository
 import com.example.data.repository.GroupPageRepository
 import com.example.data.repository.PostRepository
 import com.example.data.repository.UserRepository
+import com.example.ui.maintenance.MaintenanceConfigDialog
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
@@ -172,6 +176,24 @@ fun AdminDashboardView(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var currentAdminScreen by remember { mutableStateOf(AdminActiveScreen.DASHBOARD_MAIN) }
     var showChangePinDialog by remember { mutableStateOf(false) }
+
+    val maintenanceConfig by adminRepo.maintenanceConfigFlow.collectAsState()
+    var showMaintenanceConfigDialog by remember { mutableStateOf(false) }
+
+    if (showMaintenanceConfigDialog) {
+        MaintenanceConfigDialog(
+            initialConfig = maintenanceConfig,
+            onSave = { title, desc ->
+                adminRepo.setMaintenanceMode(
+                    enabled = true,
+                    title = title,
+                    description = desc
+                )
+                showMaintenanceConfigDialog = false
+            },
+            onDismiss = { showMaintenanceConfigDialog = false }
+        )
+    }
 
     if (showChangePinDialog) {
         AdminChangePinDialog(
@@ -547,6 +569,40 @@ fun AdminDashboardView(
                             },
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                         )
+
+                        // 10. Maintenance Mode
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.Construction, contentDescription = null, tint = Color(0xFFE65100)) },
+                            label = {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Maintenance Mode", fontWeight = FontWeight.Medium)
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (maintenanceConfig.isEnabled) Color(0xFFFFEBEE) else Color(0xFFE8F5E9)
+                                    ) {
+                                        Text(
+                                            text = if (maintenanceConfig.isEnabled) "ON" else "OFF",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (maintenanceConfig.isEnabled) Color(0xFFE53935) else Color(0xFF008937),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            },
+                            selected = false,
+                            onClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    showMaintenanceConfigDialog = true
+                                }
+                            },
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                        )
                     }
                 }
             ) {
@@ -750,6 +806,129 @@ fun AdminDashboardView(
                                             color = Color.White,
                                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                         )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Maintenance Mode Banner (Span 2)
+                        item(span = { GridItemSpan(2) }) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (maintenanceConfig.isEnabled) {
+                                            // Click while enabled opens config/disable
+                                            showMaintenanceConfigDialog = true
+                                        } else {
+                                            showMaintenanceConfigDialog = true
+                                        }
+                                    }
+                                    .testTag("admin_maintenance_mode_banner"),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (maintenanceConfig.isEnabled) Color(0xFFD32F2F) else Color.White
+                                ),
+                                elevation = CardDefaults.cardElevation(2.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = if (maintenanceConfig.isEnabled) Color.White.copy(alpha = 0.25f) else Color(0xFFFFF3E0),
+                                                modifier = Modifier.size(42.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Construction,
+                                                        contentDescription = "Maintenance",
+                                                        tint = if (maintenanceConfig.isEnabled) Color.White else Color(0xFFE65100),
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column {
+                                                Text(
+                                                    text = "Maintenance Mode (মেইনটেনেন্স মোড)",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp,
+                                                    color = if (maintenanceConfig.isEnabled) Color.White else Color(0xFF1C1E21)
+                                                )
+                                                Text(
+                                                    text = if (maintenanceConfig.isEnabled) "ACTIVE • App locked for users" else "App is online & accessible",
+                                                    fontSize = 12.sp,
+                                                    color = if (maintenanceConfig.isEnabled) Color.White.copy(alpha = 0.9f) else Color(0xFF65676B)
+                                                )
+                                            }
+                                        }
+
+                                        Switch(
+                                            checked = maintenanceConfig.isEnabled,
+                                            onCheckedChange = { isChecked ->
+                                                if (isChecked) {
+                                                    showMaintenanceConfigDialog = true
+                                                } else {
+                                                    adminRepo.setMaintenanceMode(
+                                                        enabled = false,
+                                                        title = maintenanceConfig.title,
+                                                        description = maintenanceConfig.description
+                                                    )
+                                                }
+                                            },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = Color.White,
+                                                checkedTrackColor = Color(0xFF00C853),
+                                                uncheckedThumbColor = Color.White,
+                                                uncheckedTrackColor = Color(0xFFB0BEC5)
+                                            )
+                                        )
+                                    }
+
+                                    if (maintenanceConfig.isEnabled) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = Color.White.copy(alpha = 0.15f),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = "Notice: ${maintenanceConfig.description}",
+                                                    fontSize = 12.sp,
+                                                    color = Color.White,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "Edit Notice",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.Yellow,
+                                                    modifier = Modifier.clickable {
+                                                        showMaintenanceConfigDialog = true
+                                                    }
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }

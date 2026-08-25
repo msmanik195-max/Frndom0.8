@@ -104,6 +104,11 @@ fun ProfileReelsViewerDialog(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 val reel = reels[page]
+                androidx.compose.runtime.LaunchedEffect(reel.id, currentUserId) {
+                    if (currentUserId.isNotBlank()) {
+                        postRepository.recordPostView(reel.id, currentUserId)
+                    }
+                }
                 val isLiked = reel.likedByMap[currentUserId] == true
                 val isVerifiedAuthor = reel.isAuthorVerified || (currentUserProfile != null && reel.authorId == currentUserProfile.uid && currentUserProfile.isVerificationActive()) || UserRepository.isUserVerifiedStatic(reel.authorId)
                 val liveAuthorAvatar = UserRepository.getUserAvatarStatic(reel.authorId)
@@ -238,8 +243,26 @@ fun ProfileReelsViewerDialog(
                             .align(Alignment.BottomEnd)
                             .padding(end = 12.dp, bottom = 48.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(18.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        // Unique Views
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayCircleOutline,
+                                contentDescription = "Views",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Text(
+                                text = "${reel.viewsCount}",
+                                fontSize = 12.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
                         // Like
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,

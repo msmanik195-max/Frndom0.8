@@ -138,3 +138,18 @@ data class VerificationRequestItem(
         "adminNote" to adminNote
     )
 }
+
+@IgnoreExtraProperties
+data class MaintenanceConfig(
+    val isEnabled: Boolean = false,
+    val title: String = "Maintenance",
+    val description: String = "We are currently performing system maintenance. Please check back later.",
+    val updatedAt: Long = System.currentTimeMillis()
+) {
+    fun toMap(): Map<String, Any> = mapOf(
+        "isEnabled" to isEnabled,
+        "title" to title,
+        "description" to description,
+        "updatedAt" to updatedAt
+    )
+}

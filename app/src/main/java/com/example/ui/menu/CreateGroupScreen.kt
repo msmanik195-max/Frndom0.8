@@ -43,6 +43,8 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.ui.components.ImageCropDialog
+import com.example.ui.components.CropShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,6 +84,7 @@ fun CreateGroupScreen(
     var groupDescription by remember { mutableStateOf(groupToEdit?.description.orEmpty()) }
     var groupPrivacy by remember { mutableStateOf(groupToEdit?.privacy ?: "Public") }
     var coverUri by remember { mutableStateOf<Uri?>(null) }
+    var rawCoverUriToCrop by remember { mutableStateOf<Uri?>(null) }
     var currentCoverUrl by remember { mutableStateOf(groupToEdit?.coverUrl.orEmpty()) }
     var isSubmitting by remember { mutableStateOf(false) }
 
@@ -90,7 +93,7 @@ fun CreateGroupScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            coverUri = uri
+            rawCoverUriToCrop = uri
         }
     }
 
@@ -443,6 +446,20 @@ fun CreateGroupScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
             }
+        }
+
+        // Cover Cropping Dialog
+        rawCoverUriToCrop?.let { uriToCrop ->
+            ImageCropDialog(
+                imageUri = uriToCrop,
+                cropShape = CropShape.COVER,
+                title = "Crop Group Cover Photo",
+                onCropSuccess = { croppedUri ->
+                    coverUri = croppedUri
+                    rawCoverUriToCrop = null
+                },
+                onDismiss = { rawCoverUriToCrop = null }
+            )
         }
     }
 }

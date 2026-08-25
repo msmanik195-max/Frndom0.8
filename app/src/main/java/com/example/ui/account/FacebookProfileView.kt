@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -57,6 +58,7 @@ import androidx.compose.ui.res.painterResource
 import com.example.R
 import com.example.ui.components.VerificationBadge
 import com.example.ui.verification.VerificationBadgeScreen
+import com.example.data.repository.AppSettingsRepository
 import com.example.data.repository.GroupPageRepository
 import com.example.ui.menu.DashboardView
 import com.example.ui.menu.GroupsView
@@ -108,6 +110,7 @@ import com.example.data.repository.UserRepository
 import com.example.data.service.MediaUploadService
 import com.example.ui.components.FullScreenImageViewer
 import com.example.ui.components.ImageCropDialog
+import com.example.ui.components.CropShape
 import com.example.ui.components.ProfileReelsViewerDialog
 import com.example.ui.components.PostOptionsBottomSheet
 import com.example.ui.components.EditPostDialog
@@ -123,12 +126,21 @@ import java.util.Locale
 import kotlin.math.max
 import kotlinx.coroutines.launch
 
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Phone
+import com.example.ui.account.EditProfileScreen
+
 enum class ProfileSubScreen {
     DASHBOARD,
     PAGES,
     GROUPS,
     SETTINGS,
-    VERIFICATION
+    VERIFICATION,
+    EDIT_PROFILE
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -146,6 +158,8 @@ fun FacebookProfileView(
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+    val appSettingsRepository = remember { AppSettingsRepository.getInstance(context) }
+    val autoPlayVideos by appSettingsRepository.autoPlayVideos.collectAsState()
     val groupPageRepository = remember { GroupPageRepository(context) }
     val scope = rememberCoroutineScope()
     val isMyProfile = targetUser.uid == currentUserId
@@ -207,6 +221,16 @@ fun FacebookProfileView(
             )
             return
         }
+        ProfileSubScreen.EDIT_PROFILE -> {
+            EditProfileScreen(
+                userProfile = user,
+                userRepository = userRepository,
+                mediaUploadService = mediaUploadService,
+                onBack = { currentSubScreen = null },
+                onSaved = { /* updated */ }
+            )
+            return
+        }
         null -> { /* Render profile screen */ }
     }
 
@@ -235,6 +259,7 @@ fun FacebookProfileView(
     var isUploadingProfile by remember { mutableStateOf(false) }
     var isUploadingCover by remember { mutableStateOf(false) }
     var imageUriToCrop by remember { mutableStateOf<Uri?>(null) }
+    var coverUriToCrop by remember { mutableStateOf<Uri?>(null) }
     var selectedPostForOptions by remember { mutableStateOf<PostItem?>(null) }
     var postToEdit by remember { mutableStateOf<PostItem?>(null) }
     var showCommentsSheet by remember { mutableStateOf<PostItem?>(null) }
@@ -251,16 +276,8 @@ fun FacebookProfileView(
     val coverPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
-        if (uri != null && mediaUploadService != null) {
-            isUploadingCover = true
-            scope.launch {
-                val res = mediaUploadService.uploadImageUri(uri, folder = "covers")
-                val remoteUrl = res.getOrDefault(uri.toString())
-                isUploadingCover = false
-                val updated = user.copy(coverPictureUrl = remoteUrl)
-                userRepository.updateUserProfile(updated)
-                Toast.makeText(context, "Cover photo updated!", Toast.LENGTH_SHORT).show()
-            }
+        if (uri != null) {
+            coverUriToCrop = uri
         }
     }
 
@@ -489,7 +506,7 @@ fun FacebookProfileView(
                         }
 
                         Button(
-                            onClick = { showEditProfileDialog = true },
+                            onClick = { currentSubScreen = ProfileSubScreen.EDIT_PROFILE },
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFFE4E6EB),
@@ -619,9 +636,10 @@ fun FacebookProfileView(
         item {
             HorizontalPager(
                 state = pagerState,
+                verticalAlignment = Alignment.Top,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 500.dp, max = 3000.dp)
+                    .wrapContentHeight(align = Alignment.Top)
             ) { pageIndex ->
                 when (pageIndex) {
                     0 -> { // Posts Tab
@@ -639,6 +657,8 @@ fun FacebookProfileView(
                                         post = post,
                                         currentUserId = currentUserId,
                                         currentUserProfile = user,
+                                        postRepository = postRepository,
+                                        autoPlayVideos = autoPlayVideos,
                                         onOptionsClick = { selectedPostForOptions = post },
                                         onCommentClick = { showCommentsSheet = post },
                                         onLikeClick = { postRepository.toggleLike(post.id, currentUserId) },
@@ -651,20 +671,20 @@ fun FacebookProfileView(
                         }
                     }
 
-                    1 -> { // Reels Tab (3 per row, total view count, click opens full-screen reels feed)
+                    1 -> { // Reels Tab (3 per row, unique view count, click opens full-screen reels feed)
                         if (userReels.isEmpty()) {
                             EmptyTabContent(message = "No reels published yet")
                         } else {
                             FlowRow(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(6.dp),
+                                    .padding(horizontal = 6.dp, vertical = 4.dp),
                                 maxItemsInEachRow = 3,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 userReels.forEachIndexed { index, reel ->
-                                    val totalViews = max(reel.likesCount * 3 + 12, 1)
+                                    val totalViews = reel.viewsCount
                                     val formattedViews = when {
                                         totalViews >= 1_000_000 -> String.format(Locale.US, "%.1fM", totalViews / 1_000_000f)
                                         totalViews >= 1_000 -> String.format(Locale.US, "%.1fK", totalViews / 1_000f)
@@ -781,27 +801,262 @@ fun FacebookProfileView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Text(text = "About Info", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF050505))
+                            Text(
+                                text = "About Info",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF050505)
+                            )
 
-                            if (user.work.isNotBlank()) {
-                                AboutInfoRow(icon = Icons.Default.Work, text = "Works at ${user.work}")
+                            // Work & Education Category
+                            val hasWork = (isMyProfile || user.showWork) && user.work.isNotBlank()
+                            val hasSchool = (isMyProfile || user.showEducation) && user.school.isNotBlank()
+                            val hasCollege = (isMyProfile || user.showEducation) && (user.college.isNotBlank() || user.education.isNotBlank())
+                            if (hasWork || hasSchool || hasCollege) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F8FA))
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "Work & Education",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF0866FF)
+                                        )
+                                        if (hasWork) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.Work,
+                                                text = "Works at ${user.work}",
+                                                isPrivate = isMyProfile && !user.showWork
+                                            )
+                                        }
+                                        if (hasCollege) {
+                                            val collegeText = if (user.college.isNotBlank()) user.college else user.education
+                                            AboutInfoRow(
+                                                icon = Icons.Default.School,
+                                                text = "Studied at $collegeText",
+                                                isPrivate = isMyProfile && !user.showEducation
+                                            )
+                                        }
+                                        if (hasSchool) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.School,
+                                                text = "Went to ${user.school}",
+                                                isPrivate = isMyProfile && !user.showEducation
+                                            )
+                                        }
+                                    }
+                                }
                             }
-                            if (user.education.isNotBlank()) {
-                                AboutInfoRow(icon = Icons.Default.School, text = "Studied at ${user.education}")
+
+                            // Places Lived Category
+                            val hasCity = (isMyProfile || user.showAddress) && user.currentCity.isNotBlank()
+                            val hasHometown = (isMyProfile || user.showAddress) && user.hometown.isNotBlank()
+                            val hasAddress = (isMyProfile || user.showAddress) && user.address.isNotBlank()
+                            if (hasCity || hasHometown || hasAddress) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F8FA))
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "Places Lived",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF0866FF)
+                                        )
+                                        if (hasCity) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.LocationOn,
+                                                text = "Lives in ${user.currentCity}",
+                                                isPrivate = isMyProfile && !user.showAddress
+                                            )
+                                        }
+                                        if (hasHometown) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.Home,
+                                                text = "From ${user.hometown}",
+                                                isPrivate = isMyProfile && !user.showAddress
+                                            )
+                                        }
+                                        if (hasAddress) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.LocationOn,
+                                                text = "Address: ${user.address}",
+                                                isPrivate = isMyProfile && !user.showAddress
+                                            )
+                                        }
+                                    }
+                                }
                             }
-                            if (user.currentCity.isNotBlank()) {
-                                AboutInfoRow(icon = Icons.Default.LocationOn, text = "Lives in ${user.currentCity}")
+
+                            // Contact Information
+                            val hasEmail = (isMyProfile || user.showEmail) && user.email.isNotBlank()
+                            val hasPhone = (isMyProfile || user.showPhone) && user.phoneNumber.isNotBlank()
+                            val hasContactEmail = (isMyProfile || user.showContactEmail) && user.contactEmail.isNotBlank()
+                            val hasContactPhone = (isMyProfile || user.showContactPhone) && user.contactPhone.isNotBlank()
+                            val hasWebsite = (isMyProfile || user.showWebsite) && user.website.isNotBlank()
+                            if (hasEmail || hasPhone || hasContactEmail || hasContactPhone || hasWebsite) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F8FA))
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "Contact Info",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF0866FF)
+                                        )
+                                        if (hasEmail) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.Email,
+                                                text = user.email,
+                                                label = "Primary Email",
+                                                isPrivate = isMyProfile && !user.showEmail
+                                            )
+                                        }
+                                        if (hasPhone) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.Phone,
+                                                text = user.phoneNumber,
+                                                label = "Primary Phone",
+                                                isPrivate = isMyProfile && !user.showPhone
+                                            )
+                                        }
+                                        if (hasContactEmail) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.Email,
+                                                text = user.contactEmail,
+                                                label = "Contact Email",
+                                                isPrivate = isMyProfile && !user.showContactEmail
+                                            )
+                                        }
+                                        if (hasContactPhone) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.Phone,
+                                                text = user.contactPhone,
+                                                label = "Contact Phone",
+                                                isPrivate = isMyProfile && !user.showContactPhone
+                                            )
+                                        }
+                                        if (hasWebsite) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.Language,
+                                                text = user.website,
+                                                label = "Website",
+                                                isPrivate = isMyProfile && !user.showWebsite
+                                            )
+                                        }
+                                    }
+                                }
                             }
-                            if (user.hometown.isNotBlank()) {
-                                AboutInfoRow(icon = Icons.Default.Home, text = "From ${user.hometown}")
+
+                            // Basic Info & Identity
+                            val hasUsername = (isMyProfile || user.showUsername) && user.username.isNotBlank()
+                            val hasIdCard = (isMyProfile || user.showIdCard) && user.idCardNumber.isNotBlank()
+                            val hasRelation = user.relationshipStatus.isNotBlank()
+                            val hasBirth = user.formattedBirthDate.isNotBlank()
+                            if (hasUsername || hasIdCard || hasRelation || hasBirth) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F8FA))
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "Basic Info & Identity",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF0866FF)
+                                        )
+                                        if (hasUsername) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.PersonAdd,
+                                                text = "@${user.username}",
+                                                label = "Username",
+                                                isPrivate = isMyProfile && !user.showUsername
+                                            )
+                                        }
+                                        if (hasIdCard) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.Badge,
+                                                text = user.idCardNumber,
+                                                label = "ID Card Number",
+                                                isPrivate = isMyProfile && !user.showIdCard
+                                            )
+                                        }
+                                        if (hasRelation) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.Favorite,
+                                                text = user.relationshipStatus,
+                                                label = "Relationship"
+                                            )
+                                        }
+                                        if (hasBirth) {
+                                            AboutInfoRow(
+                                                icon = Icons.Default.Cake,
+                                                text = "Born on ${user.formattedBirthDate}",
+                                                label = "Birthday"
+                                            )
+                                        }
+                                    }
+                                }
                             }
-                            if (user.relationshipStatus.isNotBlank()) {
-                                AboutInfoRow(icon = Icons.Default.Favorite, text = user.relationshipStatus)
-                            }
-                            if (user.formattedBirthDate.isNotBlank()) {
-                                AboutInfoRow(icon = Icons.Default.Cake, text = "Born on ${user.formattedBirthDate}")
+
+                            // Edit Public Details Button for owner
+                            if (isMyProfile) {
+                                Button(
+                                    onClick = { currentSubScreen = ProfileSubScreen.EDIT_PROFILE },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFE4E6EB),
+                                        contentColor = Color(0xFF0866FF)
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color(0xFF0866FF)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Edit Public Details",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF0866FF)
+                                    )
+                                }
                             }
                         }
                     }
@@ -888,7 +1143,8 @@ fun FacebookProfileView(
     imageUriToCrop?.let { uriToCrop ->
         ImageCropDialog(
             imageUri = uriToCrop,
-            isCircular = true,
+            cropShape = CropShape.CIRCLE,
+            title = "Crop Profile Picture",
             onCropSuccess = { croppedUri ->
                 imageUriToCrop = null
                 isUploadingProfile = true
@@ -906,6 +1162,32 @@ fun FacebookProfileView(
                 }
             },
             onDismiss = { imageUriToCrop = null }
+        )
+    }
+
+    // Cover Photo Crop Dialog (16:9 banner crop)
+    coverUriToCrop?.let { uriToCrop ->
+        ImageCropDialog(
+            imageUri = uriToCrop,
+            cropShape = CropShape.COVER,
+            title = "Crop Cover Photo",
+            onCropSuccess = { croppedUri ->
+                coverUriToCrop = null
+                isUploadingCover = true
+                scope.launch {
+                    val remoteUrl = if (mediaUploadService != null) {
+                        val res = mediaUploadService.uploadImageUri(croppedUri, folder = "covers")
+                        res.getOrDefault(croppedUri.toString())
+                    } else {
+                        croppedUri.toString()
+                    }
+                    isUploadingCover = false
+                    val updated = user.copy(coverPictureUrl = remoteUrl)
+                    userRepository.updateUserProfile(updated)
+                    Toast.makeText(context, "Cover photo updated!", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismiss = { coverUriToCrop = null }
         )
     }
 
@@ -1426,11 +1708,75 @@ private fun StatCounter(title: String, count: Int) {
 }
 
 @Composable
-private fun AboutInfoRow(icon: ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(imageVector = icon, contentDescription = null, tint = Color(0xFF65676B), modifier = Modifier.size(22.dp))
+private fun AboutInfoRow(
+    icon: ImageVector,
+    text: String,
+    label: String = "",
+    isPrivate: Boolean = false
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFE4E6EB)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFF0866FF),
+                modifier = Modifier.size(18.dp)
+            )
+        }
         Spacer(modifier = Modifier.width(12.dp))
-        Text(text = text, fontSize = 15.sp, color = Color(0xFF050505))
+        Column(modifier = Modifier.weight(1f)) {
+            if (label.isNotBlank()) {
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    color = Color(0xFF65676B),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            Text(
+                text = text,
+                fontSize = 14.sp,
+                color = Color(0xFF050505),
+                fontWeight = FontWeight.Normal
+            )
+        }
+        if (isPrivate) {
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = Color(0xFFE4E6EB),
+                modifier = Modifier.padding(start = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Only You",
+                        tint = Color(0xFF65676B),
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Text(
+                        text = "Only You",
+                        fontSize = 11.sp,
+                        color = Color(0xFF65676B),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1439,7 +1785,7 @@ private fun EmptyTabContent(message: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(48.dp),
+            .padding(vertical = 32.dp, horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(text = message, fontSize = 15.sp, color = Color(0xFF65676B))

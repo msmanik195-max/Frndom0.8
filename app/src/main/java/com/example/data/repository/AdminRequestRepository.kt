@@ -3,6 +3,7 @@ package com.example.data.repository
 import android.content.Context
 import android.util.Log
 import com.example.data.model.DepositRequestItem
+import com.example.data.model.MaintenanceConfig
 import com.example.data.model.MonetizationRequestItem
 import com.example.data.model.PaymentMethodItem
 import com.example.data.model.VerificationRequestItem
@@ -64,9 +65,13 @@ class AdminRequestRepository(private val context: Context) {
     private val statsRef: DatabaseReference? by lazy { rtdb?.getReference("admin_stats") }
     private val pinRef: DatabaseReference? by lazy { rtdb?.getReference("admin_pin") }
     private val penRef: DatabaseReference? by lazy { rtdb?.getReference("admin_pen") }
+    private val maintenanceRef: DatabaseReference? by lazy { rtdb?.getReference("admin_maintenance") }
 
     private val _adminPinFlow = MutableStateFlow<String>(loadAdminPin())
     val adminPinFlow: StateFlow<String> = _adminPinFlow.asStateFlow()
+
+    private val _maintenanceConfigFlow = MutableStateFlow<MaintenanceConfig>(loadMaintenanceConfig())
+    val maintenanceConfigFlow: StateFlow<MaintenanceConfig> = _maintenanceConfigFlow.asStateFlow()
 
     private val firestore: FirebaseFirestore? by lazy {
         try {
@@ -163,11 +168,89 @@ class AdminRequestRepository(private val context: Context) {
 
         // Start Firebase real-time listeners for all domains with admin_ node names
         listenToFirebaseAdminPin()
+        listenToFirebaseMaintenance()
         listenToFirebasePaymentMethods()
         listenToFirebaseDepositRequests()
         listenToFirebaseWithdrawRequests()
         listenToFirebaseVerificationRequests()
         listenToFirebaseMonetizationRequests()
+    }
+
+    private fun loadMaintenanceConfig(): MaintenanceConfig {
+        val enabled = prefs.getBoolean("admin_maintenance_enabled", false)
+        val title = prefs.getString("admin_maintenance_title", "Maintenance") ?: "Maintenance"
+        val desc = prefs.getString("admin_maintenance_desc", "We are currently performing system maintenance. Please check back later.")
+            ?: "We are currently performing system maintenance. Please check back later."
+        val time = prefs.getLong("admin_maintenance_time", System.currentTimeMillis())
+        return MaintenanceConfig(
+            isEnabled = enabled,
+            title = title,
+            description = desc,
+            updatedAt = time
+        )
+    }
+
+    private fun saveMaintenanceConfigLocally(config: MaintenanceConfig) {
+        prefs.edit()
+            .putBoolean("admin_maintenance_enabled", config.isEnabled)
+            .putString("admin_maintenance_title", config.title)
+            .putString("admin_maintenance_desc", config.description)
+            .putLong("admin_maintenance_time", config.updatedAt)
+            .apply()
+    }
+
+    private fun listenToFirebaseMaintenance() {
+        try {
+            maintenanceRef?.addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.exists()) {
+                        val isEnabled = snapshot.child("isEnabled").getValue(Boolean::class.java)
+                            ?: (snapshot.child("isEnabled").getValue(String::class.java)?.toBoolean())
+                            ?: false
+                        val title = snapshot.child("title").getValue(String::class.java)?.ifBlank { "Maintenance" } ?: "Maintenance"
+                        val desc = snapshot.child("description").getValue(String::class.java)
+                            ?: "We are currently performing system maintenance. Please check back later."
+                        val time = snapshot.child("updatedAt").getValue(Long::class.java) ?: System.currentTimeMillis()
+                        val cfg = MaintenanceConfig(isEnabled, title, desc, time)
+                        _maintenanceConfigFlow.value = cfg
+                        saveMaintenanceConfigLocally(cfg)
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.w("AdminRequestRepository", "Maintenance listener cancelled: ${error.message}")
+                }
+            })
+        } catch (e: Exception) {
+            Log.e("AdminRequestRepository", "Error setting up maintenance listener: ${e.message}")
+        }
+    }
+
+    fun setMaintenanceMode(
+        enabled: Boolean,
+        title: String = "Maintenance",
+        description: String,
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        val config = MaintenanceConfig(
+            isEnabled = enabled,
+            title = if (title.isBlank()) "Maintenance" else title.trim(),
+            description = description.trim().ifBlank { "We are currently performing system maintenance. Please check back later." },
+            updatedAt = System.currentTimeMillis()
+        )
+        _maintenanceConfigFlow.value = config
+        saveMaintenanceConfigLocally(config)
+
+        try {
+            maintenanceRef?.setValue(config.toMap())
+            firestore?.collection("admin_maintenance")?.document("config")?.set(
+                config.toMap(),
+                SetOptions.merge()
+            )
+            onComplete?.invoke(true)
+        } catch (e: Exception) {
+            onComplete?.invoke(true)
+        }
     }
 
     private fun loadAdminPin(): String {
@@ -370,7 +453,7 @@ class AdminRequestRepository(private val context: Context) {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val list = mutableListOf<PaymentMethodItem>()
                     for (child in snapshot.children) {
-                        val item = child.getValue(PaymentMethodItem::class.java)
+                        val item = parsePaymentMethodSnapshot(child)
                         if (item != null) {
                             list.add(item)
                         }
@@ -396,6 +479,32 @@ class AdminRequestRepository(private val context: Context) {
                 }
             })
         } catch (_: Exception) {}
+    }
+
+    private fun parsePaymentMethodSnapshot(child: DataSnapshot): PaymentMethodItem? {
+        return try {
+            val id = child.child("id").getValue(String::class.java) ?: child.key ?: ""
+            if (id.isBlank()) return null
+            val name = child.child("name").getValue(String::class.java) ?: ""
+            val accountNumber = child.child("accountNumber").getValue(String::class.java)
+                ?: child.child("accountNumber").getValue(Long::class.java)?.toString()
+                ?: ""
+            val accountType = child.child("accountType").getValue(String::class.java) ?: "Personal"
+            val instructions = child.child("instructions").getValue(String::class.java) ?: ""
+            val colorHex = child.child("colorHex").getValue(String::class.java) ?: "#E2136E"
+            val isActive = child.child("isActive").getValue(Boolean::class.java) ?: true
+            PaymentMethodItem(
+                id = id,
+                name = name,
+                accountNumber = accountNumber,
+                accountType = accountType,
+                instructions = instructions,
+                colorHex = colorHex,
+                isActive = isActive
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun loadPaymentMethods(): List<PaymentMethodItem> {
@@ -495,7 +604,7 @@ class AdminRequestRepository(private val context: Context) {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val list = mutableListOf<DepositRequestItem>()
                     for (child in snapshot.children) {
-                        val item = child.getValue(DepositRequestItem::class.java)
+                        val item = parseDepositRequestSnapshot(child)
                         if (item != null) {
                             list.add(item)
                         }
@@ -521,6 +630,43 @@ class AdminRequestRepository(private val context: Context) {
                 }
             })
         } catch (_: Exception) {}
+    }
+
+    private fun parseDepositRequestSnapshot(child: DataSnapshot): DepositRequestItem? {
+        return try {
+            val id = child.child("id").getValue(String::class.java) ?: child.key ?: ""
+            if (id.isBlank()) return null
+            val userId = child.child("userId").getValue(String::class.java) ?: ""
+            val userName = child.child("userName").getValue(String::class.java) ?: ""
+            val userEmail = child.child("userEmail").getValue(String::class.java) ?: ""
+            val amount = child.child("amount").getValue(Double::class.java)
+                ?: child.child("amount").getValue(Long::class.java)?.toDouble()
+                ?: child.child("amount").getValue(String::class.java)?.toDoubleOrNull()
+                ?: 0.0
+            val methodName = child.child("methodName").getValue(String::class.java) ?: ""
+            val senderNumber = child.child("senderNumber").getValue(String::class.java)
+                ?: child.child("senderNumber").getValue(Long::class.java)?.toString()
+                ?: ""
+            val transactionId = child.child("transactionId").getValue(String::class.java) ?: ""
+            val status = child.child("status").getValue(String::class.java) ?: "PENDING"
+            val createdAt = child.child("createdAt").getValue(Long::class.java) ?: System.currentTimeMillis()
+            val adminNote = child.child("adminNote").getValue(String::class.java) ?: ""
+            DepositRequestItem(
+                id = id,
+                userId = userId,
+                userName = userName,
+                userEmail = userEmail,
+                amount = amount,
+                methodName = methodName,
+                senderNumber = senderNumber,
+                transactionId = transactionId,
+                status = status,
+                createdAt = createdAt,
+                adminNote = adminNote
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun loadDepositRequests(): List<DepositRequestItem> {
@@ -687,7 +833,7 @@ class AdminRequestRepository(private val context: Context) {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val list = mutableListOf<WithdrawRequestItem>()
                     for (child in snapshot.children) {
-                        val item = child.getValue(WithdrawRequestItem::class.java)
+                        val item = parseWithdrawRequestSnapshot(child)
                         if (item != null) {
                             list.add(item)
                         }
@@ -713,6 +859,41 @@ class AdminRequestRepository(private val context: Context) {
                 }
             })
         } catch (_: Exception) {}
+    }
+
+    private fun parseWithdrawRequestSnapshot(child: DataSnapshot): WithdrawRequestItem? {
+        return try {
+            val id = child.child("id").getValue(String::class.java) ?: child.key ?: ""
+            if (id.isBlank()) return null
+            val userId = child.child("userId").getValue(String::class.java) ?: ""
+            val userName = child.child("userName").getValue(String::class.java) ?: ""
+            val userEmail = child.child("userEmail").getValue(String::class.java) ?: ""
+            val amount = child.child("amount").getValue(Double::class.java)
+                ?: child.child("amount").getValue(Long::class.java)?.toDouble()
+                ?: child.child("amount").getValue(String::class.java)?.toDoubleOrNull()
+                ?: 0.0
+            val methodName = child.child("methodName").getValue(String::class.java) ?: ""
+            val accountNumber = child.child("accountNumber").getValue(String::class.java)
+                ?: child.child("accountNumber").getValue(Long::class.java)?.toString()
+                ?: ""
+            val status = child.child("status").getValue(String::class.java) ?: "PENDING"
+            val createdAt = child.child("createdAt").getValue(Long::class.java) ?: System.currentTimeMillis()
+            val adminNote = child.child("adminNote").getValue(String::class.java) ?: ""
+            WithdrawRequestItem(
+                id = id,
+                userId = userId,
+                userName = userName,
+                userEmail = userEmail,
+                amount = amount,
+                methodName = methodName,
+                accountNumber = accountNumber,
+                status = status,
+                createdAt = createdAt,
+                adminNote = adminNote
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun loadWithdrawRequests(): List<WithdrawRequestItem> {
@@ -849,7 +1030,7 @@ class AdminRequestRepository(private val context: Context) {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val list = mutableListOf<VerificationRequestItem>()
                     for (child in snapshot.children) {
-                        val item = child.getValue(VerificationRequestItem::class.java)
+                        val item = parseVerificationRequestSnapshot(child)
                         if (item != null) {
                             list.add(item)
                         }
@@ -875,6 +1056,45 @@ class AdminRequestRepository(private val context: Context) {
                 }
             })
         } catch (_: Exception) {}
+    }
+
+    private fun parseVerificationRequestSnapshot(child: DataSnapshot): VerificationRequestItem? {
+        return try {
+            val id = child.child("id").getValue(String::class.java) ?: child.key ?: ""
+            if (id.isBlank()) return null
+            val userId = child.child("userId").getValue(String::class.java) ?: ""
+            val userName = child.child("userName").getValue(String::class.java) ?: ""
+            val userEmail = child.child("userEmail").getValue(String::class.java) ?: ""
+            val userPhone = child.child("userPhone").getValue(String::class.java)
+                ?: child.child("userPhone").getValue(Long::class.java)?.toString()
+                ?: ""
+            val planTitle = child.child("planTitle").getValue(String::class.java) ?: ""
+            val durationDays = child.child("durationDays").getValue(Int::class.java)
+                ?: child.child("durationDays").getValue(Long::class.java)?.toInt()
+                ?: 30
+            val price = child.child("price").getValue(Double::class.java)
+                ?: child.child("price").getValue(Long::class.java)?.toDouble()
+                ?: child.child("price").getValue(String::class.java)?.toDoubleOrNull()
+                ?: 0.0
+            val status = child.child("status").getValue(String::class.java) ?: "PENDING"
+            val createdAt = child.child("createdAt").getValue(Long::class.java) ?: System.currentTimeMillis()
+            val adminNote = child.child("adminNote").getValue(String::class.java) ?: ""
+            VerificationRequestItem(
+                id = id,
+                userId = userId,
+                userName = userName,
+                userEmail = userEmail,
+                userPhone = userPhone,
+                planTitle = planTitle,
+                durationDays = durationDays,
+                price = price,
+                status = status,
+                createdAt = createdAt,
+                adminNote = adminNote
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun loadVerificationRequests(): List<VerificationRequestItem> {
@@ -1047,7 +1267,7 @@ class AdminRequestRepository(private val context: Context) {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val list = mutableListOf<MonetizationRequestItem>()
                     for (child in snapshot.children) {
-                        val item = child.getValue(MonetizationRequestItem::class.java)
+                        val item = parseMonetizationRequestSnapshot(child)
                         if (item != null) {
                             list.add(item)
                         }
@@ -1073,6 +1293,50 @@ class AdminRequestRepository(private val context: Context) {
                 }
             })
         } catch (_: Exception) {}
+    }
+
+    private fun parseMonetizationRequestSnapshot(child: DataSnapshot): MonetizationRequestItem? {
+        return try {
+            val id = child.child("id").getValue(String::class.java) ?: child.key ?: ""
+            if (id.isBlank()) return null
+            val userId = child.child("userId").getValue(String::class.java) ?: ""
+            val userName = child.child("userName").getValue(String::class.java) ?: ""
+            val userEmail = child.child("userEmail").getValue(String::class.java) ?: ""
+            val viewsCount = child.child("viewsCount").getValue(Int::class.java)
+                ?: child.child("viewsCount").getValue(Long::class.java)?.toInt()
+                ?: 0
+            val followersCount = child.child("followersCount").getValue(Int::class.java)
+                ?: child.child("followersCount").getValue(Long::class.java)?.toInt()
+                ?: 0
+            val postsCount = child.child("postsCount").getValue(Int::class.java)
+                ?: child.child("postsCount").getValue(Long::class.java)?.toInt()
+                ?: 0
+            val reelsCount = child.child("reelsCount").getValue(Int::class.java)
+                ?: child.child("reelsCount").getValue(Long::class.java)?.toInt()
+                ?: 0
+            val accountAgeDays = child.child("accountAgeDays").getValue(Int::class.java)
+                ?: child.child("accountAgeDays").getValue(Long::class.java)?.toInt()
+                ?: 0
+            val status = child.child("status").getValue(String::class.java) ?: "PENDING"
+            val createdAt = child.child("createdAt").getValue(Long::class.java) ?: System.currentTimeMillis()
+            val adminNote = child.child("adminNote").getValue(String::class.java) ?: ""
+            MonetizationRequestItem(
+                id = id,
+                userId = userId,
+                userName = userName,
+                userEmail = userEmail,
+                viewsCount = viewsCount,
+                followersCount = followersCount,
+                postsCount = postsCount,
+                reelsCount = reelsCount,
+                accountAgeDays = accountAgeDays,
+                status = status,
+                createdAt = createdAt,
+                adminNote = adminNote
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun loadMonetizationRequests(): List<MonetizationRequestItem> {

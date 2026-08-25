@@ -49,6 +49,8 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.ui.components.ImageCropDialog
+import com.example.ui.components.CropShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -111,12 +113,15 @@ fun CreatePageScreen(
         "Health & Fitness"
     )
 
+    var rawAvatarUriToCrop by remember { mutableStateOf<Uri?>(null) }
+    var rawCoverUriToCrop by remember { mutableStateOf<Uri?>(null) }
+
     // Avatar Picker Launcher
     val avatarPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            avatarUri = uri
+            rawAvatarUriToCrop = uri
         }
     }
 
@@ -125,7 +130,7 @@ fun CreatePageScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            coverUri = uri
+            rawCoverUriToCrop = uri
         }
     }
 
@@ -611,6 +616,34 @@ fun CreatePageScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
             }
+        }
+
+        // Avatar Cropping Dialog
+        rawAvatarUriToCrop?.let { uriToCrop ->
+            ImageCropDialog(
+                imageUri = uriToCrop,
+                cropShape = CropShape.CIRCLE,
+                title = "Crop Page Profile Picture",
+                onCropSuccess = { croppedUri ->
+                    avatarUri = croppedUri
+                    rawAvatarUriToCrop = null
+                },
+                onDismiss = { rawAvatarUriToCrop = null }
+            )
+        }
+
+        // Cover Cropping Dialog
+        rawCoverUriToCrop?.let { uriToCrop ->
+            ImageCropDialog(
+                imageUri = uriToCrop,
+                cropShape = CropShape.COVER,
+                title = "Crop Page Cover Photo",
+                onCropSuccess = { croppedUri ->
+                    coverUri = croppedUri
+                    rawCoverUriToCrop = null
+                },
+                onDismiss = { rawCoverUriToCrop = null }
+            )
         }
     }
 }

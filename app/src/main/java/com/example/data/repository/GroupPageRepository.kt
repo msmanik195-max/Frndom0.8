@@ -10,6 +10,8 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,6 +27,14 @@ class GroupPageRepository(private val context: Context) {
             FirebaseDatabase.getInstance().reference
         } catch (e: Throwable) {
             Log.w("GroupPageRepository", "Firebase Database unavailable: ${e.message}")
+            null
+        }
+    }
+
+    private val firestore: FirebaseFirestore? by lazy {
+        try {
+            FirebaseFirestore.getInstance()
+        } catch (e: Throwable) {
             null
         }
     }
@@ -63,103 +73,167 @@ class GroupPageRepository(private val context: Context) {
     }
 
     private fun listenToFirebase() {
-        dbRef?.child("pages")?.addValueEventListener(object : ValueEventListener {
+        // Listen to admin_pages (primary node in Firebase Realtime Database)
+        dbRef?.child("admin_pages")?.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val list = mutableListOf<PageItem>()
-                for (child in snapshot.children) {
-                    val id = child.child("id").getValue(String::class.java) ?: child.key ?: ""
-                    if (id.isBlank() || id in listOf("page_tech", "page_travel", "page_fitness")) continue
-                    val name = child.child("name").getValue(String::class.java) ?: ""
-                    val category = child.child("category").getValue(String::class.java) ?: "Creator"
-                    val desc = child.child("description").getValue(String::class.java) ?: ""
-                    val cover = child.child("coverUrl").getValue(String::class.java) ?: ""
-                    val avatar = child.child("avatarUrl").getValue(String::class.java) ?: ""
-                    val creatorId = child.child("creatorId").getValue(String::class.java) ?: ""
-                    val creatorName = child.child("creatorName").getValue(String::class.java) ?: ""
-                    val followers = child.child("followersCount").getValue(Int::class.java) ?: 1
-                    val likes = child.child("likesCount").getValue(Int::class.java) ?: 1
-                    val isBlocked = child.child("isBlocked").getValue(Boolean::class.java) ?: false
-                    val isVerified = child.child("isVerified").getValue(Boolean::class.java) ?: false
-                    val badgeType = child.child("badgeType").getValue(String::class.java) ?: "BLUE"
-                    val badgeExpiresAt = child.child("badgeExpiresAt").getValue(Long::class.java) ?: 0L
-                    val website = child.child("website").getValue(String::class.java) ?: ""
-                    val email = child.child("email").getValue(String::class.java) ?: ""
-                    val phone = child.child("phone").getValue(String::class.java) ?: ""
-                    val created = child.child("createdAt").getValue(Long::class.java) ?: System.currentTimeMillis()
-                    list.add(
-                        PageItem(
-                            id = id,
-                            name = name,
-                            category = category,
-                            description = desc,
-                            coverUrl = cover,
-                            avatarUrl = avatar,
-                            creatorId = creatorId,
-                            creatorName = creatorName,
-                            followersCount = followers,
-                            likesCount = likes,
-                            isBlocked = isBlocked,
-                            isVerified = isVerified,
-                            badgeType = badgeType,
-                            badgeExpiresAt = badgeExpiresAt,
-                            website = website,
-                            email = email,
-                            phone = phone,
-                            createdAt = created
-                        )
-                    )
+                if (snapshot.exists() && snapshot.childrenCount > 0) {
+                    val list = parsePagesSnapshot(snapshot)
+                    _pagesFlow.value = list
+                    savePagesLocally(list)
+                } else {
+                    // Check legacy "pages" node for one-time migration to admin_pages
+                    checkAndMigrateLegacyPages()
                 }
-                _pagesFlow.value = list
-                savePagesLocally(list)
             }
 
             override fun onCancelled(error: DatabaseError) {}
         })
 
-        dbRef?.child("groups")?.addValueEventListener(object : ValueEventListener {
+        // Listen to admin_groups (primary node in Firebase Realtime Database)
+        dbRef?.child("admin_groups")?.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val list = mutableListOf<GroupItem>()
-                for (child in snapshot.children) {
-                    val id = child.child("id").getValue(String::class.java) ?: child.key ?: ""
-                    if (id.isBlank() || id in listOf("grp_android", "grp_photo", "grp_travel")) continue
-                    val name = child.child("name").getValue(String::class.java) ?: ""
-                    val privacy = child.child("privacy").getValue(String::class.java) ?: "Public"
-                    val desc = child.child("description").getValue(String::class.java) ?: ""
-                    val cover = child.child("coverUrl").getValue(String::class.java) ?: ""
-                    val creatorId = child.child("creatorId").getValue(String::class.java) ?: ""
-                    val creatorName = child.child("creatorName").getValue(String::class.java) ?: ""
-                    val category = child.child("category").getValue(String::class.java) ?: "General"
-                    val members = child.child("membersCount").getValue(Int::class.java) ?: 1
-                    val isBlocked = child.child("isBlocked").getValue(Boolean::class.java) ?: false
-                    val isVerified = child.child("isVerified").getValue(Boolean::class.java) ?: false
-                    val badgeType = child.child("badgeType").getValue(String::class.java) ?: "BLUE"
-                    val badgeExpiresAt = child.child("badgeExpiresAt").getValue(Long::class.java) ?: 0L
-                    val created = child.child("createdAt").getValue(Long::class.java) ?: System.currentTimeMillis()
-                    list.add(
-                        GroupItem(
-                            id = id,
-                            name = name,
-                            privacy = privacy,
-                            description = desc,
-                            coverUrl = cover,
-                            creatorId = creatorId,
-                            creatorName = creatorName,
-                            category = category,
-                            membersCount = members,
-                            isBlocked = isBlocked,
-                            isVerified = isVerified,
-                            badgeType = badgeType,
-                            badgeExpiresAt = badgeExpiresAt,
-                            createdAt = created
-                        )
-                    )
+                if (snapshot.exists() && snapshot.childrenCount > 0) {
+                    val list = parseGroupsSnapshot(snapshot)
+                    _groupsFlow.value = list
+                    saveGroupsLocally(list)
+                } else {
+                    // Check legacy "groups" node for one-time migration to admin_groups
+                    checkAndMigrateLegacyGroups()
                 }
-                _groupsFlow.value = list
-                saveGroupsLocally(list)
             }
 
             override fun onCancelled(error: DatabaseError) {}
         })
+    }
+
+    private fun parsePagesSnapshot(snapshot: DataSnapshot): List<PageItem> {
+        val list = mutableListOf<PageItem>()
+        for (child in snapshot.children) {
+            val id = child.child("id").getValue(String::class.java) ?: child.key ?: ""
+            if (id.isBlank() || id in listOf("page_tech", "page_travel", "page_fitness")) continue
+            val name = child.child("name").getValue(String::class.java) ?: ""
+            val category = child.child("category").getValue(String::class.java) ?: "Creator"
+            val desc = child.child("description").getValue(String::class.java) ?: ""
+            val cover = child.child("coverUrl").getValue(String::class.java) ?: ""
+            val avatar = child.child("avatarUrl").getValue(String::class.java) ?: ""
+            val creatorId = child.child("creatorId").getValue(String::class.java) ?: ""
+            val creatorName = child.child("creatorName").getValue(String::class.java) ?: ""
+            val followers = child.child("followersCount").getValue(Int::class.java) ?: 1
+            val likes = child.child("likesCount").getValue(Int::class.java) ?: 1
+            val isBlocked = child.child("isBlocked").getValue(Boolean::class.java) ?: false
+            val isVerified = child.child("isVerified").getValue(Boolean::class.java) ?: false
+            val badgeType = child.child("badgeType").getValue(String::class.java) ?: "BLUE"
+            val badgeExpiresAt = child.child("badgeExpiresAt").getValue(Long::class.java) ?: 0L
+            val website = child.child("website").getValue(String::class.java) ?: ""
+            val email = child.child("email").getValue(String::class.java) ?: ""
+            val phone = child.child("phone").getValue(String::class.java) ?: ""
+            val created = child.child("createdAt").getValue(Long::class.java) ?: System.currentTimeMillis()
+            list.add(
+                PageItem(
+                    id = id,
+                    name = name,
+                    category = category,
+                    description = desc,
+                    coverUrl = cover,
+                    avatarUrl = avatar,
+                    creatorId = creatorId,
+                    creatorName = creatorName,
+                    followersCount = followers,
+                    likesCount = likes,
+                    isBlocked = isBlocked,
+                    isVerified = isVerified,
+                    badgeType = badgeType,
+                    badgeExpiresAt = badgeExpiresAt,
+                    website = website,
+                    email = email,
+                    phone = phone,
+                    createdAt = created
+                )
+            )
+        }
+        return list
+    }
+
+    private fun parseGroupsSnapshot(snapshot: DataSnapshot): List<GroupItem> {
+        val list = mutableListOf<GroupItem>()
+        for (child in snapshot.children) {
+            val id = child.child("id").getValue(String::class.java) ?: child.key ?: ""
+            if (id.isBlank() || id in listOf("grp_android", "grp_photo", "grp_travel")) continue
+            val name = child.child("name").getValue(String::class.java) ?: ""
+            val privacy = child.child("privacy").getValue(String::class.java) ?: "Public"
+            val desc = child.child("description").getValue(String::class.java) ?: ""
+            val cover = child.child("coverUrl").getValue(String::class.java) ?: ""
+            val creatorId = child.child("creatorId").getValue(String::class.java) ?: ""
+            val creatorName = child.child("creatorName").getValue(String::class.java) ?: ""
+            val category = child.child("category").getValue(String::class.java) ?: "General"
+            val members = child.child("membersCount").getValue(Int::class.java) ?: 1
+            val isBlocked = child.child("isBlocked").getValue(Boolean::class.java) ?: false
+            val isVerified = child.child("isVerified").getValue(Boolean::class.java) ?: false
+            val badgeType = child.child("badgeType").getValue(String::class.java) ?: "BLUE"
+            val badgeExpiresAt = child.child("badgeExpiresAt").getValue(Long::class.java) ?: 0L
+            val created = child.child("createdAt").getValue(Long::class.java) ?: System.currentTimeMillis()
+            list.add(
+                GroupItem(
+                    id = id,
+                    name = name,
+                    privacy = privacy,
+                    description = desc,
+                    coverUrl = cover,
+                    creatorId = creatorId,
+                    creatorName = creatorName,
+                    category = category,
+                    membersCount = members,
+                    isBlocked = isBlocked,
+                    isVerified = isVerified,
+                    badgeType = badgeType,
+                    badgeExpiresAt = badgeExpiresAt,
+                    createdAt = created
+                )
+            )
+        }
+        return list
+    }
+
+    private fun checkAndMigrateLegacyPages() {
+        try {
+            dbRef?.child("pages")?.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.exists() && snapshot.childrenCount > 0) {
+                        val legacyList = parsePagesSnapshot(snapshot)
+                        if (legacyList.isNotEmpty()) {
+                            _pagesFlow.value = legacyList
+                            savePagesLocally(legacyList)
+                            // Push each into admin_pages
+                            for (page in legacyList) {
+                                dbRef?.child("admin_pages")?.child(page.id)?.setValue(page.toMap())
+                            }
+                        }
+                    }
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        } catch (_: Exception) {}
+    }
+
+    private fun checkAndMigrateLegacyGroups() {
+        try {
+            dbRef?.child("groups")?.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.exists() && snapshot.childrenCount > 0) {
+                        val legacyList = parseGroupsSnapshot(snapshot)
+                        if (legacyList.isNotEmpty()) {
+                            _groupsFlow.value = legacyList
+                            saveGroupsLocally(legacyList)
+                            // Push each into admin_groups
+                            for (group in legacyList) {
+                                dbRef?.child("admin_groups")?.child(group.id)?.setValue(group.toMap())
+                            }
+                        }
+                    }
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        } catch (_: Exception) {}
     }
 
     fun createPage(page: PageItem) {
@@ -168,7 +242,10 @@ class GroupPageRepository(private val context: Context) {
         _pagesFlow.value = updated
         savePagesLocally(updated)
         try {
-            dbRef?.child("pages")?.child(newPage.id)?.setValue(newPage.toMap())
+            // Write to admin_pages in Firebase Realtime Database
+            dbRef?.child("admin_pages")?.child(newPage.id)?.setValue(newPage.toMap())
+            // Also write to Firestore admin_pages
+            firestore?.collection("admin_pages")?.document(newPage.id)?.set(newPage.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
     }
 
@@ -177,7 +254,10 @@ class GroupPageRepository(private val context: Context) {
         _pagesFlow.value = updated
         savePagesLocally(updated)
         try {
-            dbRef?.child("pages")?.child(page.id)?.setValue(page.toMap())
+            // Write to admin_pages in Firebase Realtime Database
+            dbRef?.child("admin_pages")?.child(page.id)?.setValue(page.toMap())
+            // Also write to Firestore admin_pages
+            firestore?.collection("admin_pages")?.document(page.id)?.set(page.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
     }
 
@@ -186,7 +266,11 @@ class GroupPageRepository(private val context: Context) {
         _pagesFlow.value = updated
         savePagesLocally(updated)
         try {
+            // Remove from admin_pages in Firebase Realtime Database
+            dbRef?.child("admin_pages")?.child(pageId)?.removeValue()
             dbRef?.child("pages")?.child(pageId)?.removeValue()
+            // Also remove from Firestore admin_pages
+            firestore?.collection("admin_pages")?.document(pageId)?.delete()
         } catch (_: Exception) {}
     }
 
@@ -196,7 +280,10 @@ class GroupPageRepository(private val context: Context) {
         _groupsFlow.value = updated
         saveGroupsLocally(updated)
         try {
-            dbRef?.child("groups")?.child(newGroup.id)?.setValue(newGroup.toMap())
+            // Write to admin_groups in Firebase Realtime Database
+            dbRef?.child("admin_groups")?.child(newGroup.id)?.setValue(newGroup.toMap())
+            // Also write to Firestore admin_groups
+            firestore?.collection("admin_groups")?.document(newGroup.id)?.set(newGroup.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
     }
 
@@ -205,7 +292,10 @@ class GroupPageRepository(private val context: Context) {
         _groupsFlow.value = updated
         saveGroupsLocally(updated)
         try {
-            dbRef?.child("groups")?.child(group.id)?.setValue(group.toMap())
+            // Write to admin_groups in Firebase Realtime Database
+            dbRef?.child("admin_groups")?.child(group.id)?.setValue(group.toMap())
+            // Also write to Firestore admin_groups
+            firestore?.collection("admin_groups")?.document(group.id)?.set(group.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
     }
 
@@ -214,7 +304,11 @@ class GroupPageRepository(private val context: Context) {
         _groupsFlow.value = updated
         saveGroupsLocally(updated)
         try {
+            // Remove from admin_groups in Firebase Realtime Database
+            dbRef?.child("admin_groups")?.child(groupId)?.removeValue()
             dbRef?.child("groups")?.child(groupId)?.removeValue()
+            // Also remove from Firestore admin_groups
+            firestore?.collection("admin_groups")?.document(groupId)?.delete()
         } catch (_: Exception) {}
     }
 

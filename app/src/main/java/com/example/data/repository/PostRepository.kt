@@ -55,11 +55,13 @@ class PostRepository(private val context: Context) {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val list = mutableListOf<PostItem>()
                     for (child in snapshot.children) {
-                        val post = child.getValue(PostItem::class.java)
-                        if (post != null) {
-                            val isVerified = post.isAuthorVerified || UserRepository.isUserVerifiedStatic(post.authorId)
-                            list.add(if (isVerified && !post.isAuthorVerified) post.copy(isAuthorVerified = true) else post)
-                        }
+                        try {
+                            val post = child.getValue(PostItem::class.java)
+                            if (post != null) {
+                                val isVerified = post.isAuthorVerified || UserRepository.isUserVerifiedStatic(post.authorId)
+                                list.add(if (isVerified && !post.isAuthorVerified) post.copy(isAuthorVerified = true) else post)
+                            }
+                        } catch (_: Exception) {}
                     }
                     val sortedList = list.sortedByDescending { it.createdAt }
                     saveLocalPosts(sortedList)
@@ -135,6 +137,16 @@ class PostRepository(private val context: Context) {
                     }
                 }
 
+                val viewedByMap = mutableMapOf<String, Boolean>()
+                if (obj.has("viewedByMap")) {
+                    val viewedObj = obj.getJSONObject("viewedByMap")
+                    val keys = viewedObj.keys()
+                    while (keys.hasNext()) {
+                        val k = keys.next()
+                        viewedByMap[k] = viewedObj.getBoolean(k)
+                    }
+                }
+
                 val mediaUrlsList = mutableListOf<String>()
                 if (obj.has("mediaUrls")) {
                     val mArr = obj.getJSONArray("mediaUrls")
@@ -146,6 +158,9 @@ class PostRepository(private val context: Context) {
                 val authorId = obj.optString("authorId", "")
                 val isVerifiedFromCache = obj.optBoolean("isAuthorVerified", false)
                 val isVerified = isVerifiedFromCache || UserRepository.isUserVerifiedStatic(authorId)
+
+                val storedViewsCount = obj.optInt("viewsCount", viewedByMap.size)
+                val effectiveViewsCount = if (viewedByMap.isNotEmpty()) viewedByMap.size else storedViewsCount
 
                 list.add(
                     PostItem(
@@ -168,8 +183,10 @@ class PostRepository(private val context: Context) {
                         likesCount = obj.optInt("likesCount", 0),
                         commentsCount = obj.optInt("commentsCount", 0),
                         sharesCount = obj.optInt("sharesCount", 0),
+                        viewsCount = effectiveViewsCount,
                         likedByMap = likedByMap,
                         reactionsMap = reactionsMap,
+                        viewedByMap = viewedByMap,
                         isAuthorVerified = isVerified,
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     )
@@ -208,6 +225,7 @@ class PostRepository(private val context: Context) {
                     put("likesCount", p.likesCount)
                     put("commentsCount", p.commentsCount)
                     put("sharesCount", p.sharesCount)
+                    put("viewsCount", p.viewsCount)
                     put("createdAt", p.createdAt)
                     val likedObj = JSONObject()
                     p.likedByMap.forEach { (k, v) -> likedObj.put(k, v) }
@@ -215,6 +233,9 @@ class PostRepository(private val context: Context) {
                     val reactObj = JSONObject()
                     p.reactionsMap.forEach { (k, v) -> reactObj.put(k, v) }
                     put("reactionsMap", reactObj)
+                    val viewedObj = JSONObject()
+                    p.viewedByMap.forEach { (k, v) -> viewedObj.put(k, v) }
+                    put("viewedByMap", viewedObj)
                     put("isAuthorVerified", isVerified)
                 }
                 arr.put(obj)
@@ -364,7 +385,40 @@ class PostRepository(private val context: Context) {
                 Log.e("PostRepository", "Firebase share error: ${e.message}")
             }
         }
+    }
 
+    /**
+     * Records a unique view for a post, reel, video or photo.
+     * Guaranteed: 1 view per unique user/profile/page account.
+     * Even if the user watches 100 times, viewsCount remains 1 for this viewerId.
+     */
+    fun recordPostView(postId: String, viewerId: String) {
+        if (postId.isBlank() || viewerId.isBlank()) return
+        val current = _postsFlow.value.toMutableList()
+        val index = current.indexOfFirst { it.id == postId }
+        if (index >= 0) {
+            val post = current[index]
+            if (post.viewedByMap.containsKey(viewerId)) {
+                // Already viewed by this user or page account - DO NOT increment
+                return
+            }
+            val newViewedByMap = post.viewedByMap + (viewerId to true)
+            val newViewsCount = newViewedByMap.size
+            val updated = post.copy(
+                viewedByMap = newViewedByMap,
+                viewsCount = newViewsCount
+            )
+            current[index] = updated
+            _postsFlow.value = current
+            saveLocalPosts(current)
+
+            try {
+                dbRef?.child(postId)?.child("viewedByMap")?.child(viewerId)?.setValue(true)
+                dbRef?.child(postId)?.child("viewsCount")?.setValue(newViewsCount)
+            } catch (e: Exception) {
+                Log.e("PostRepository", "Firebase recordPostView error: ${e.message}")
+            }
+        }
     }
 
     fun addDetailedComment(comment: com.example.data.model.CommentItem) {

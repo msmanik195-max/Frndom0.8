@@ -169,6 +169,11 @@ fun ReelsScreen(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 val reel = reels[page]
+                androidx.compose.runtime.LaunchedEffect(reel.id, userId) {
+                    if (userId.isNotBlank()) {
+                        postRepository.recordPostView(reel.id, userId)
+                    }
+                }
                 ReelVideoItem(
                     reel = reel,
                     currentUserId = userId,
@@ -429,7 +434,7 @@ private fun ReelVideoItem(
                 )
         )
 
-        // Right Action Bar (Like, Comment, Share)
+        // Right Action Bar (Views, Like, Comment, Share)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -437,6 +442,24 @@ private fun ReelVideoItem(
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 24.dp)
         ) {
+            // Views count
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayCircleOutline,
+                    contentDescription = "Views",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+                Text(
+                    text = "${reel.viewsCount}",
+                    fontSize = 12.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
             // Like
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,

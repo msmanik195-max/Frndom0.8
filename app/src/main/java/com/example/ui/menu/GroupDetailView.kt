@@ -653,6 +653,7 @@ fun GroupDetailView(
                                     PostCardItem(
                                         post = post,
                                         currentUserId = currentUid,
+                                        postRepository = postRepository,
                                         onUserClick = {},
                                         onLikeClick = { postRepository.toggleLike(post.id, currentUid) },
                                         onReactionClick = { reaction -> postRepository.setReaction(post.id, currentUid, reaction) },

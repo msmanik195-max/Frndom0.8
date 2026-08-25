@@ -184,13 +184,15 @@ class UserRepository(private val context: Context) {
                     val newMap = LinkedHashMap<String, UserProfile>()
                     val deleted = deletedUidsSet.value
                     for (child in snapshot.children) {
-                        val user = child.getValue(UserProfile::class.java)
-                        if (user != null && user.uid.isNotBlank()) {
-                            if (deleted.contains(user.uid) || deleted.contains(user.email.trim().lowercase()) || deleted.contains(user.phoneNumber.trim())) {
-                                continue
+                        try {
+                            val user = child.getValue(UserProfile::class.java)
+                            if (user != null && user.uid.isNotBlank()) {
+                                if (deleted.contains(user.uid) || deleted.contains(user.email.trim().lowercase()) || deleted.contains(user.phoneNumber.trim())) {
+                                    continue
+                                }
+                                newMap[user.uid] = enrichProfileWithVerification(user)
                             }
-                            newMap[user.uid] = enrichProfileWithVerification(user)
-                        }
+                        } catch (_: Exception) {}
                     }
                     allUsersMapState.value = newMap
                 }
@@ -496,6 +498,29 @@ class UserRepository(private val context: Context) {
                 profilePictureUrl = obj.optString("profilePictureUrl", ""),
                 coverPictureUrl = obj.optString("coverPictureUrl", ""),
                 bio = obj.optString("bio", ""),
+                username = obj.optString("username", ""),
+                work = obj.optString("work", ""),
+                education = obj.optString("education", ""),
+                school = obj.optString("school", ""),
+                college = obj.optString("college", ""),
+                currentCity = obj.optString("currentCity", ""),
+                hometown = obj.optString("hometown", ""),
+                address = obj.optString("address", ""),
+                contactPhone = obj.optString("contactPhone", ""),
+                contactEmail = obj.optString("contactEmail", ""),
+                website = obj.optString("website", ""),
+                idCardNumber = obj.optString("idCardNumber", ""),
+                relationshipStatus = obj.optString("relationshipStatus", ""),
+                showEmail = obj.optBoolean("showEmail", true),
+                showPhone = obj.optBoolean("showPhone", true),
+                showContactPhone = obj.optBoolean("showContactPhone", true),
+                showContactEmail = obj.optBoolean("showContactEmail", true),
+                showUsername = obj.optBoolean("showUsername", true),
+                showIdCard = obj.optBoolean("showIdCard", false),
+                showAddress = obj.optBoolean("showAddress", true),
+                showEducation = obj.optBoolean("showEducation", true),
+                showWork = obj.optBoolean("showWork", true),
+                showWebsite = obj.optBoolean("showWebsite", true),
                 isVerified = obj.optBoolean("isVerified", false),
                 verifiedUntil = obj.optLong("verifiedUntil", 0L),
                 verificationType = obj.optString("verificationType", "GREEN_BADGE"),
@@ -528,6 +553,29 @@ class UserRepository(private val context: Context) {
             put("profilePictureUrl", enriched.profilePictureUrl)
             put("coverPictureUrl", enriched.coverPictureUrl)
             put("bio", enriched.bio)
+            put("username", enriched.username)
+            put("work", enriched.work)
+            put("education", enriched.education)
+            put("school", enriched.school)
+            put("college", enriched.college)
+            put("currentCity", enriched.currentCity)
+            put("hometown", enriched.hometown)
+            put("address", enriched.address)
+            put("contactPhone", enriched.contactPhone)
+            put("contactEmail", enriched.contactEmail)
+            put("website", enriched.website)
+            put("idCardNumber", enriched.idCardNumber)
+            put("relationshipStatus", enriched.relationshipStatus)
+            put("showEmail", enriched.showEmail)
+            put("showPhone", enriched.showPhone)
+            put("showContactPhone", enriched.showContactPhone)
+            put("showContactEmail", enriched.showContactEmail)
+            put("showUsername", enriched.showUsername)
+            put("showIdCard", enriched.showIdCard)
+            put("showAddress", enriched.showAddress)
+            put("showEducation", enriched.showEducation)
+            put("showWork", enriched.showWork)
+            put("showWebsite", enriched.showWebsite)
             put("isVerified", enriched.isVerified)
             put("verifiedUntil", enriched.verifiedUntil)
             put("verificationType", enriched.verificationType)
@@ -567,6 +615,29 @@ class UserRepository(private val context: Context) {
                 put("profilePictureUrl", acc.profilePictureUrl)
                 put("coverPictureUrl", acc.coverPictureUrl)
                 put("bio", acc.bio)
+                put("username", acc.username)
+                put("work", acc.work)
+                put("education", acc.education)
+                put("school", acc.school)
+                put("college", acc.college)
+                put("currentCity", acc.currentCity)
+                put("hometown", acc.hometown)
+                put("address", acc.address)
+                put("contactPhone", acc.contactPhone)
+                put("contactEmail", acc.contactEmail)
+                put("website", acc.website)
+                put("idCardNumber", acc.idCardNumber)
+                put("relationshipStatus", acc.relationshipStatus)
+                put("showEmail", acc.showEmail)
+                put("showPhone", acc.showPhone)
+                put("showContactPhone", acc.showContactPhone)
+                put("showContactEmail", acc.showContactEmail)
+                put("showUsername", acc.showUsername)
+                put("showIdCard", acc.showIdCard)
+                put("showAddress", acc.showAddress)
+                put("showEducation", acc.showEducation)
+                put("showWork", acc.showWork)
+                put("showWebsite", acc.showWebsite)
                 put("isVerified", acc.isVerified)
                 put("verifiedUntil", acc.verifiedUntil)
                 put("verificationType", acc.verificationType)
@@ -637,6 +708,29 @@ class UserRepository(private val context: Context) {
                     profilePictureUrl = obj.optString("profilePictureUrl", ""),
                     coverPictureUrl = obj.optString("coverPictureUrl", ""),
                     bio = obj.optString("bio", ""),
+                    username = obj.optString("username", ""),
+                    work = obj.optString("work", ""),
+                    education = obj.optString("education", ""),
+                    school = obj.optString("school", ""),
+                    college = obj.optString("college", ""),
+                    currentCity = obj.optString("currentCity", ""),
+                    hometown = obj.optString("hometown", ""),
+                    address = obj.optString("address", ""),
+                    contactPhone = obj.optString("contactPhone", ""),
+                    contactEmail = obj.optString("contactEmail", ""),
+                    website = obj.optString("website", ""),
+                    idCardNumber = obj.optString("idCardNumber", ""),
+                    relationshipStatus = obj.optString("relationshipStatus", ""),
+                    showEmail = obj.optBoolean("showEmail", true),
+                    showPhone = obj.optBoolean("showPhone", true),
+                    showContactPhone = obj.optBoolean("showContactPhone", true),
+                    showContactEmail = obj.optBoolean("showContactEmail", true),
+                    showUsername = obj.optBoolean("showUsername", true),
+                    showIdCard = obj.optBoolean("showIdCard", false),
+                    showAddress = obj.optBoolean("showAddress", true),
+                    showEducation = obj.optBoolean("showEducation", true),
+                    showWork = obj.optBoolean("showWork", true),
+                    showWebsite = obj.optBoolean("showWebsite", true),
                     isVerified = obj.optBoolean("isVerified", false),
                     verifiedUntil = obj.optLong("verifiedUntil", 0L),
                     verificationType = obj.optString("verificationType", "GREEN_BADGE"),

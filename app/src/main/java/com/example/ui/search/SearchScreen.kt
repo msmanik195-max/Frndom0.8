@@ -542,6 +542,7 @@ fun SearchScreen(
                                         post = post,
                                         currentUserId = currentUserId,
                                         currentUserProfile = currentUserProfile,
+                                        postRepository = postRepository,
                                         onUserClick = {
                                             val profile = UserProfile(
                                                 uid = post.authorId,
@@ -577,6 +578,7 @@ fun SearchScreen(
                                         post = post,
                                         currentUserId = currentUserId,
                                         currentUserProfile = currentUserProfile,
+                                        postRepository = postRepository,
                                         onUserClick = {
                                             val profile = UserProfile(
                                                 uid = post.authorId,
@@ -996,7 +998,7 @@ private fun ReelSearchCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${reel.likesCount} likes",
+                    text = "${reel.viewsCount} views • ${reel.likesCount} likes",
                     fontSize = 10.sp,
                     color = Color.White.copy(alpha = 0.85f)
                 )

@@ -68,6 +68,7 @@ import com.example.ui.components.PostOptionsBottomSheet
 import com.example.ui.components.EditPostDialog
 import com.example.data.repository.AppSettingsRepository
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -307,6 +308,7 @@ fun HomeScreen(
                             post = post,
                             currentUserId = userId,
                             currentUserProfile = userProfile,
+                            postRepository = postRepository,
                             autoPlayVideos = autoPlayVideos,
                             onUserClick = {
                                 val peer = UserProfile(
@@ -434,7 +436,8 @@ fun PostCardItem(
     post: PostItem,
     currentUserId: String,
     currentUserProfile: UserProfile? = null,
-    autoPlayVideos: Boolean = true,
+    postRepository: PostRepository? = null,
+    autoPlayVideos: Boolean? = null,
     onUserClick: () -> Unit = {},
     onOptionsClick: () -> Unit = {},
     onLikeClick: () -> Unit,
@@ -443,6 +446,17 @@ fun PostCardItem(
     onShareClick: () -> Unit,
     onImageClick: ((urls: List<String>, index: Int) -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val appSettingsRepo = remember { AppSettingsRepository.getInstance(context) }
+    val globalAutoPlay by appSettingsRepo.autoPlayVideos.collectAsState()
+    val isAutoPlayActive = autoPlayVideos ?: globalAutoPlay
+
+    if (postRepository != null && currentUserId.isNotBlank()) {
+        androidx.compose.runtime.LaunchedEffect(post.id, currentUserId) {
+            postRepository.recordPostView(post.id, currentUserId)
+        }
+    }
+
     val userReaction = post.getUserReaction(currentUserId)
     val isVerifiedAuthor = post.isAuthorVerified || (currentUserProfile != null && post.authorId == currentUserProfile.uid && currentUserProfile.isVerificationActive()) || UserRepository.isUserVerifiedStatic(post.authorId)
     val liveAvatar = UserRepository.getUserAvatarStatic(post.authorId)
@@ -643,7 +657,7 @@ fun PostCardItem(
                     if (post.mediaUrl.isNotBlank()) {
                         FrndomVideoPlayer(
                             videoUrl = post.mediaUrl,
-                            autoPlay = autoPlayVideos,
+                            autoPlay = isAutoPlayActive,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(320.dp)
@@ -699,6 +713,13 @@ fun PostCardItem(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (post.viewsCount > 0) {
+                        Text(
+                            text = "${post.viewsCount} ${if (post.viewsCount == 1) "view" else "views"}",
+                            fontSize = 13.sp,
+                            color = Color(0xFF65676B)
+                        )
+                    }
                     if (post.commentsCount > 0) {
                         Text(
                             text = "${post.commentsCount} comments",
