@@ -9,8 +9,7 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
+
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -114,9 +113,6 @@ class UserRepository(private val context: Context) {
 
         // 3. Listen to Realtime Database users
         listenToRealtimeDbUsers()
-
-        // 4. Listen to Firestore users
-        listenToFirestoreUsers()
     }
 
     private fun listenToFirebaseVerifications() {
@@ -204,48 +200,7 @@ class UserRepository(private val context: Context) {
         } catch (_: Exception) {}
     }
 
-    private fun listenToFirestoreUsers() {
-        try {
-            if (FirebaseApp.getApps(context).isNotEmpty()) {
-                FirebaseFirestore.getInstance().collection("users")
-                    .addSnapshotListener { snapshot, error ->
-                        if (error != null || snapshot == null) return@addSnapshotListener
-                        val newMap = LinkedHashMap(allUsersMapState.value)
-                        val deleted = deletedUidsSet.value
-                        for (doc in snapshot.documents) {
-                            val user = doc.toObject(UserProfile::class.java)
-                            if (user != null && user.uid.isNotBlank()) {
-                                if (deleted.contains(user.uid) || deleted.contains(user.email.trim().lowercase()) || deleted.contains(user.phoneNumber.trim())) {
-                                    continue
-                                }
-                                val existing = newMap[user.uid]
-                                val merged = if (existing != null) {
-                                    // Merge latest fields
-                                    existing.copy(
-                                        fullName = user.fullName.ifBlank { existing.fullName },
-                                        firstName = user.firstName.ifBlank { existing.firstName },
-                                        lastName = user.lastName.ifBlank { existing.lastName },
-                                        email = user.email.ifBlank { existing.email },
-                                        phoneNumber = user.phoneNumber.ifBlank { existing.phoneNumber },
-                                        profilePictureUrl = user.profilePictureUrl.ifBlank { existing.profilePictureUrl },
-                                        bio = user.bio.ifBlank { existing.bio },
-                                        isBlocked = user.isBlocked,
-                                        isMonetized = user.isMonetized,
-                                        walletBalance = if (user.walletBalance > 0) user.walletBalance else existing.walletBalance,
-                                        isVerified = user.isVerified || existing.isVerified,
-                                        verifiedUntil = maxOf(user.verifiedUntil, existing.verifiedUntil)
-                                    )
-                                } else {
-                                    user
-                                }
-                                newMap[user.uid] = enrichProfileWithVerification(merged)
-                            }
-                        }
-                        allUsersMapState.value = newMap.filterKeys { !deleted.contains(it) }
-                    }
-            }
-        } catch (_: Exception) {}
-    }
+
 
     private fun savePersistentVerificationLocally(
         uid: String,
@@ -298,7 +253,7 @@ class UserRepository(private val context: Context) {
         if (phone.isNotBlank()) currentMap[phone.trim().replace(" ", "").replace("-", "")] = triple
         verifiedUsersMap.value = currentMap
 
-        // Also push to Firebase Realtime Database and Cloud Firestore
+        // Also push to Firebase Realtime Database
         try {
             if (uid.isNotBlank() && FirebaseApp.getApps(context).isNotEmpty()) {
                 val map = mapOf(
@@ -311,14 +266,9 @@ class UserRepository(private val context: Context) {
                     "verificationPlanTitle" to planTitle,
                     "updatedAt" to System.currentTimeMillis()
                 )
-                FirebaseFirestore.getInstance()
-                    .collection("verifications")
-                    .document(uid)
-                    .set(map, SetOptions.merge())
-
                 verificationsDbRef?.child(uid)?.setValue(map)
 
-                // Also update users node so it is in sync
+                // Also update users and admin_users node so it is in sync
                 val userVerificationPatch = mapOf(
                     "isVerified" to true,
                     "verifiedUntil" to verifiedUntil,
@@ -326,10 +276,7 @@ class UserRepository(private val context: Context) {
                     "verificationPlanTitle" to planTitle
                 )
                 dbRef?.child(uid)?.updateChildren(userVerificationPatch)
-                FirebaseFirestore.getInstance()
-                    .collection("users")
-                    .document(uid)
-                    .set(userVerificationPatch, SetOptions.merge())
+                FirebaseDatabase.getInstance().getReference("admin_users").child(uid).updateChildren(userVerificationPatch)
             }
         } catch (_: Exception) {}
 
@@ -366,11 +313,11 @@ class UserRepository(private val context: Context) {
         if (phone.isNotBlank()) editor.remove("v_phone_${phone.trim().replace(" ", "").replace("-", "")}")
         editor.apply()
 
-        // 3. Remove from Firebase
+        // 3. Remove from Firebase Realtime Database
         try {
             if (uid.isNotBlank() && FirebaseApp.getApps(context).isNotEmpty()) {
                 verificationsDbRef?.child(uid)?.removeValue()
-                FirebaseFirestore.getInstance().collection("verifications").document(uid).delete()
+                FirebaseDatabase.getInstance().getReference("verifications").child(uid).removeValue()
 
                 val userRevokePatch = mapOf(
                     "isVerified" to false,
@@ -379,7 +326,7 @@ class UserRepository(private val context: Context) {
                     "verificationPlanTitle" to ""
                 )
                 dbRef?.child(uid)?.updateChildren(userRevokePatch)
-                FirebaseFirestore.getInstance().collection("users").document(uid).set(userRevokePatch, SetOptions.merge())
+                FirebaseDatabase.getInstance().getReference("admin_users").child(uid).updateChildren(userRevokePatch)
             }
         } catch (_: Exception) {}
 
@@ -757,23 +704,16 @@ class UserRepository(private val context: Context) {
             return
         }
 
-        // 1. Sync to Cloud Firestore
-        try {
-            if (FirebaseApp.getApps(context).isNotEmpty()) {
-                FirebaseFirestore.getInstance()
-                    .collection("users")
-                    .document(enriched.uid)
-                    .set(enriched.toMap(), SetOptions.merge())
-            }
-        } catch (_: Exception) {}
-
-        // 2. Sync to Realtime Database
+        // Sync to Realtime Database (users and admin_users)
         if (dbRef == null) {
             onComplete(true)
             return
         }
         dbRef?.child(enriched.uid)?.setValue(enriched.toMap())
             ?.addOnCompleteListener { task ->
+                try {
+                    FirebaseDatabase.getInstance().getReference("admin_users").child(enriched.uid).setValue(enriched.toMap())
+                } catch (_: Exception) {}
                 onComplete(task.isSuccessful)
             }
     }
@@ -789,12 +729,12 @@ class UserRepository(private val context: Context) {
         }
 
         val updates = mapOf<String, Any>("isBlocked" to isBlocked)
-        try {
-            FirebaseFirestore.getInstance().collection("users").document(uid).update(updates)
-        } catch (_: Exception) {}
 
         if (dbRef != null) {
             dbRef?.child(uid)?.updateChildren(updates)?.addOnCompleteListener { task ->
+                try {
+                    FirebaseDatabase.getInstance().getReference("admin_users").child(uid).updateChildren(updates)
+                } catch (_: Exception) {}
                 onComplete(task.isSuccessful)
             }
         } else {
@@ -809,12 +749,12 @@ class UserRepository(private val context: Context) {
         }
 
         val updates = mapOf<String, Any>("isMonetized" to isMonetized)
-        try {
-            FirebaseFirestore.getInstance().collection("users").document(uid).update(updates)
-        } catch (_: Exception) {}
 
         if (dbRef != null) {
             dbRef?.child(uid)?.updateChildren(updates)?.addOnCompleteListener { task ->
+                try {
+                    FirebaseDatabase.getInstance().getReference("admin_users").child(uid).updateChildren(updates)
+                } catch (_: Exception) {}
                 onComplete(task.isSuccessful)
             }
         } else {
@@ -938,40 +878,31 @@ class UserRepository(private val context: Context) {
         // 4. Remove verification completely
         revokePersistentVerification(uid, email, phone)
 
-        // 5. Cascade delete from Cloud Firestore
-        try {
-            if (FirebaseApp.getApps(context).isNotEmpty()) {
-                val firestore = FirebaseFirestore.getInstance()
-                firestore.collection("users").document(uid).delete()
-                firestore.collection("verifications").document(uid).delete()
-                firestore.collection("admin_verifications").document(uid).delete()
-                firestore.collection("wallets").document(uid).delete()
-
-                firestore.collection("admin_verification_request").whereEqualTo("userId", uid).get().addOnSuccessListener { snap ->
-                    for (doc in snap.documents) doc.reference.delete()
-                }
-                firestore.collection("admin_deposit_request").whereEqualTo("userId", uid).get().addOnSuccessListener { snap ->
-                    for (doc in snap.documents) doc.reference.delete()
-                }
-                firestore.collection("admin_withdraw_request").whereEqualTo("userId", uid).get().addOnSuccessListener { snap ->
-                    for (doc in snap.documents) doc.reference.delete()
-                }
-                firestore.collection("admin_monetization_request").whereEqualTo("userId", uid).get().addOnSuccessListener { snap ->
-                    for (doc in snap.documents) doc.reference.delete()
-                }
-            }
-        } catch (_: Exception) {}
-
-        // 6. Cascade delete from Realtime Database (users, verifications, wallets, notifications, posts, stories)
+        // 5. Cascade delete from Realtime Database (users, admin_users, verifications, wallets, notifications, posts, stories, admin requests)
         try {
             if (FirebaseApp.getApps(context).isNotEmpty()) {
                 val rtdb = FirebaseDatabase.getInstance()
                 rtdb.getReference("users").child(uid).removeValue()
+                rtdb.getReference("admin_users").child(uid).removeValue()
                 rtdb.getReference("admin_verifications").child(uid).removeValue()
                 rtdb.getReference("verifications").child(uid).removeValue()
                 rtdb.getReference("wallets").child(uid).removeValue()
                 rtdb.getReference("notifications").child(uid).removeValue()
                 rtdb.getReference("user_settings").child(uid).removeValue()
+
+                // Delete admin requests
+                rtdb.getReference("admin_verification_request").orderByChild("userId").equalTo(uid).get().addOnSuccessListener { snap ->
+                    for (child in snap.children) child.ref.removeValue()
+                }
+                rtdb.getReference("admin_deposit_request").orderByChild("userId").equalTo(uid).get().addOnSuccessListener { snap ->
+                    for (child in snap.children) child.ref.removeValue()
+                }
+                rtdb.getReference("admin_withdraw_request").orderByChild("userId").equalTo(uid).get().addOnSuccessListener { snap ->
+                    for (child in snap.children) child.ref.removeValue()
+                }
+                rtdb.getReference("admin_monetization_request").orderByChild("userId").equalTo(uid).get().addOnSuccessListener { snap ->
+                    for (child in snap.children) child.ref.removeValue()
+                }
 
                 // Delete posts created by this user
                 rtdb.getReference("posts").orderByChild("authorId").equalTo(uid).get().addOnSuccessListener { snap ->

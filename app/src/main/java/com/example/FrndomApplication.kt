@@ -20,17 +20,17 @@ class FrndomApplication : Application() {
 
                 // If still not initialized, manually build FirebaseOptions from google-services.json credentials
                 if (FirebaseApp.getApps(this).isEmpty()) {
-                    val apiKey = BuildConfig.FIREBASE_API_KEY.ifBlank { "AIzaSyDIyVBiQKM9sFaOie1Mabvx6uWIq_5G2g4" }
-                    val appId = BuildConfig.FIREBASE_APP_ID.ifBlank { "1:811952393925:android:4755f7334040c07c702aac" }
-                    val projectId = BuildConfig.FIREBASE_PROJECT_ID.ifBlank { "frndom-871ec" }
-                    val databaseUrl = BuildConfig.FIREBASE_DATABASE_URL.ifBlank { "https://frndom-871ec-default-rtdb.firebaseio.com" }
+                    val apiKey = BuildConfig.FIREBASE_API_KEY.ifBlank { "AIzaSyDbcKf04i6AshXBO0kpmeCNBbkytEo-KwU" }
+                    val appId = BuildConfig.FIREBASE_APP_ID.ifBlank { "1:426440213847:android:4f04cda3bbfddf3bb56a12" }
+                    val projectId = BuildConfig.FIREBASE_PROJECT_ID.ifBlank { "frndom-e3f3b" }
+                    val databaseUrl = BuildConfig.FIREBASE_DATABASE_URL.ifBlank { "https://frndom-e3f3b-default-rtdb.firebaseio.com" }
 
                     val options = FirebaseOptions.Builder()
                         .setApiKey(apiKey)
                         .setApplicationId(appId)
                         .setProjectId(projectId)
                         .setDatabaseUrl(databaseUrl)
-                        .setStorageBucket("frndom-871ec.firebasestorage.app")
+                        .setStorageBucket("frndom-e3f3b.firebasestorage.app")
                         .build()
 
                     FirebaseApp.initializeApp(this, options)

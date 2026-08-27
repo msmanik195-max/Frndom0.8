@@ -8,14 +8,10 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.util.Locale
-import java.util.UUID
 
 class AuthRepository(
     private val context: Context? = null
@@ -28,11 +24,11 @@ class AuthRepository(
         try {
             if (FirebaseApp.getApps(context ?: com.google.firebase.FirebaseApp.getInstance().applicationContext).isEmpty()) {
                 val options = com.google.firebase.FirebaseOptions.Builder()
-                    .setApiKey("AIzaSyDIyVBiQKM9sFaOie1Mabvx6uWIq_5G2g4")
-                    .setApplicationId("1:811952393925:android:4755f7334040c07c702aac")
-                    .setProjectId("frndom-871ec")
-                    .setDatabaseUrl("https://frndom-871ec-default-rtdb.firebaseio.com")
-                    .setStorageBucket("frndom-871ec.firebasestorage.app")
+                    .setApiKey("AIzaSyDbcKf04i6AshXBO0kpmeCNBbkytEo-KwU")
+                    .setApplicationId("1:426440213847:android:4f04cda3bbfddf3bb56a12")
+                    .setProjectId("frndom-e3f3b")
+                    .setDatabaseUrl("https://frndom-e3f3b-default-rtdb.firebaseio.com")
+                    .setStorageBucket("frndom-e3f3b.firebasestorage.app")
                     .build()
                 if (context != null) {
                     FirebaseApp.initializeApp(context, options)
@@ -52,25 +48,18 @@ class AuthRepository(
             }
         }
 
-    private val firestore: FirebaseFirestore?
-        get() {
-            return try {
-                ensureFirebaseInitialized()
-                FirebaseFirestore.getInstance()
-            } catch (e: Throwable) {
-                Log.w("AuthRepository", "FirebaseFirestore instance initialization warning: ${e.message}")
-                null
-            }
-        }
-
     private val realtimeDb: FirebaseDatabase?
         get() {
             return try {
                 ensureFirebaseInitialized()
-                FirebaseDatabase.getInstance()
+                FirebaseDatabase.getInstance("https://frndom-e3f3b-default-rtdb.firebaseio.com")
             } catch (e: Throwable) {
-                Log.w("AuthRepository", "FirebaseDatabase instance initialization warning: ${e.message}")
-                null
+                try {
+                    FirebaseDatabase.getInstance()
+                } catch (ex: Throwable) {
+                    Log.w("AuthRepository", "FirebaseDatabase instance initialization warning: ${ex.message}")
+                    null
+                }
             }
         }
 
@@ -105,7 +94,7 @@ class AuthRepository(
 
     /**
      * Registers a new user with either Email or Phone, syncing with Firebase Auth,
-     * Firestore, Realtime Database, and Local storage.
+     * Realtime Database, and Local storage.
      */
     suspend fun registerUser(
         firstName: String,
@@ -178,23 +167,15 @@ class AuthRepository(
                 lastLoginAt = System.currentTimeMillis()
             )
 
-            // Try Cloud Firestore
-            try {
-                firestore?.collection("users")
-                    ?.document(uid)
-                    ?.set(profile.toMap(), SetOptions.merge())
-                    ?.await()
-                Log.d("AuthRepository", "Profile synced to Cloud Firestore: $uid")
-            } catch (e: Throwable) {
-                Log.w("AuthRepository", "Firestore write notice: ${e.message}")
-            }
-
-            // Try Realtime Database
+            // Sync to Realtime Database (both users and admin_users nodes)
             try {
                 realtimeDb?.getReference("users")
                     ?.child(uid)
                     ?.setValue(profile.toMap())
                     ?.await()
+                realtimeDb?.getReference("admin_users")
+                    ?.child(uid)
+                    ?.setValue(profile.toMap())
                 Log.d("AuthRepository", "Profile synced to Realtime Database: $uid")
             } catch (e: Throwable) {
                 Log.w("AuthRepository", "Realtime DB write notice: ${e.message}")
@@ -248,26 +229,24 @@ class AuthRepository(
                 throw Exception("Firebase is not configured. Please check your google-services.json.")
             }
 
-            // 2. Fetch from Firestore if UID obtained
+            // 2. Fetch from Realtime Database
             if (uid != null) {
                 try {
-                    val doc = firestore?.collection("users")?.document(uid)?.get()?.await()
-                    if (doc != null && doc.exists()) {
-                        profile = doc.toObject(UserProfile::class.java)
+                    val snapshot = realtimeDb?.getReference("users")?.child(uid)?.get()?.await()
+                    if (snapshot != null && snapshot.exists()) {
+                        profile = snapshot.getValue(UserProfile::class.java)
                     }
                 } catch (e: Throwable) {
-                    Log.w("AuthRepository", "Firestore fetch notice: ${e.message}")
+                    Log.w("AuthRepository", "Realtime DB fetch notice: ${e.message}")
                 }
 
                 if (profile == null) {
                     try {
-                        val snapshot = realtimeDb?.getReference("users")?.child(uid)?.get()?.await()
-                        if (snapshot != null && snapshot.exists()) {
-                            profile = snapshot.getValue(UserProfile::class.java)
+                        val adminSnap = realtimeDb?.getReference("admin_users")?.child(uid)?.get()?.await()
+                        if (adminSnap != null && adminSnap.exists()) {
+                            profile = adminSnap.getValue(UserProfile::class.java)
                         }
-                    } catch (e: Throwable) {
-                        Log.w("AuthRepository", "Realtime DB fetch notice: ${e.message}")
-                    }
+                    } catch (_: Throwable) {}
                 }
             }
 
@@ -306,17 +285,17 @@ class AuthRepository(
         if (uid != null) {
             var profile: UserProfile? = null
             try {
-                val doc = firestore?.collection("users")?.document(uid)?.get()?.await()
-                if (doc != null && doc.exists()) {
-                    profile = doc.toObject(UserProfile::class.java)
+                val snapshot = realtimeDb?.getReference("users")?.child(uid)?.get()?.await()
+                if (snapshot != null && snapshot.exists()) {
+                    profile = snapshot.getValue(UserProfile::class.java)
                 }
             } catch (_: Throwable) {}
 
             if (profile == null) {
                 try {
-                    val snapshot = realtimeDb?.getReference("users")?.child(uid)?.get()?.await()
-                    if (snapshot != null && snapshot.exists()) {
-                        profile = snapshot.getValue(UserProfile::class.java)
+                    val adminSnap = realtimeDb?.getReference("admin_users")?.child(uid)?.get()?.await()
+                    if (adminSnap != null && adminSnap.exists()) {
+                        profile = adminSnap.getValue(UserProfile::class.java)
                     }
                 } catch (_: Throwable) {}
             }

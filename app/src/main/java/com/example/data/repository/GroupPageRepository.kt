@@ -10,8 +10,7 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
+
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,13 +30,7 @@ class GroupPageRepository(private val context: Context) {
         }
     }
 
-    private val firestore: FirebaseFirestore? by lazy {
-        try {
-            FirebaseFirestore.getInstance()
-        } catch (e: Throwable) {
-            null
-        }
-    }
+
 
     private val _pagesFlow = MutableStateFlow<List<PageItem>>(emptyList())
     val pagesFlow: StateFlow<List<PageItem>> = _pagesFlow.asStateFlow()
@@ -244,8 +237,6 @@ class GroupPageRepository(private val context: Context) {
         try {
             // Write to admin_pages in Firebase Realtime Database
             dbRef?.child("admin_pages")?.child(newPage.id)?.setValue(newPage.toMap())
-            // Also write to Firestore admin_pages
-            firestore?.collection("admin_pages")?.document(newPage.id)?.set(newPage.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
     }
 
@@ -256,8 +247,6 @@ class GroupPageRepository(private val context: Context) {
         try {
             // Write to admin_pages in Firebase Realtime Database
             dbRef?.child("admin_pages")?.child(page.id)?.setValue(page.toMap())
-            // Also write to Firestore admin_pages
-            firestore?.collection("admin_pages")?.document(page.id)?.set(page.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
     }
 
@@ -269,8 +258,6 @@ class GroupPageRepository(private val context: Context) {
             // Remove from admin_pages in Firebase Realtime Database
             dbRef?.child("admin_pages")?.child(pageId)?.removeValue()
             dbRef?.child("pages")?.child(pageId)?.removeValue()
-            // Also remove from Firestore admin_pages
-            firestore?.collection("admin_pages")?.document(pageId)?.delete()
         } catch (_: Exception) {}
     }
 
@@ -282,8 +269,6 @@ class GroupPageRepository(private val context: Context) {
         try {
             // Write to admin_groups in Firebase Realtime Database
             dbRef?.child("admin_groups")?.child(newGroup.id)?.setValue(newGroup.toMap())
-            // Also write to Firestore admin_groups
-            firestore?.collection("admin_groups")?.document(newGroup.id)?.set(newGroup.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
     }
 
@@ -294,8 +279,6 @@ class GroupPageRepository(private val context: Context) {
         try {
             // Write to admin_groups in Firebase Realtime Database
             dbRef?.child("admin_groups")?.child(group.id)?.setValue(group.toMap())
-            // Also write to Firestore admin_groups
-            firestore?.collection("admin_groups")?.document(group.id)?.set(group.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
     }
 
@@ -307,8 +290,6 @@ class GroupPageRepository(private val context: Context) {
             // Remove from admin_groups in Firebase Realtime Database
             dbRef?.child("admin_groups")?.child(groupId)?.removeValue()
             dbRef?.child("groups")?.child(groupId)?.removeValue()
-            // Also remove from Firestore admin_groups
-            firestore?.collection("admin_groups")?.document(groupId)?.delete()
         } catch (_: Exception) {}
     }
 

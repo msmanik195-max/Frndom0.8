@@ -14,8 +14,7 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
+
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,13 +46,17 @@ class AdminRequestRepository(private val context: Context) {
     private val rtdb: FirebaseDatabase? by lazy {
         try {
             if (FirebaseApp.getApps(context).isNotEmpty()) {
-                FirebaseDatabase.getInstance()
+                FirebaseDatabase.getInstance("https://frndom-e3f3b-default-rtdb.firebaseio.com")
             } else {
                 null
             }
         } catch (e: Exception) {
-            Log.w("AdminRequestRepository", "FirebaseDatabase not initialized: ${e.message}")
-            null
+            try {
+                FirebaseDatabase.getInstance()
+            } catch (ex: Exception) {
+                Log.w("AdminRequestRepository", "FirebaseDatabase not initialized: ${ex.message}")
+                null
+            }
         }
     }
 
@@ -73,19 +76,6 @@ class AdminRequestRepository(private val context: Context) {
     private val _maintenanceConfigFlow = MutableStateFlow<MaintenanceConfig>(loadMaintenanceConfig())
     val maintenanceConfigFlow: StateFlow<MaintenanceConfig> = _maintenanceConfigFlow.asStateFlow()
 
-    private val firestore: FirebaseFirestore? by lazy {
-        try {
-            if (FirebaseApp.getApps(context).isNotEmpty()) {
-                FirebaseFirestore.getInstance()
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Log.w("AdminRequestRepository", "FirebaseFirestore not initialized: ${e.message}")
-            null
-        }
-    }
-
     init {
         // 1. Payment methods
         if (_paymentMethodsFlow.value.isEmpty()) {
@@ -96,7 +86,6 @@ class AdminRequestRepository(private val context: Context) {
         try {
             _paymentMethodsFlow.value.forEach { pm ->
                 paymentMethodsRef?.child(pm.id)?.setValue(pm.toMap())
-                firestore?.collection("admin_payment_methods")?.document(pm.id)?.set(pm.toMap(), SetOptions.merge())
             }
         } catch (_: Exception) {}
 
@@ -109,7 +98,6 @@ class AdminRequestRepository(private val context: Context) {
         try {
             _depositRequestsFlow.value.forEach { dep ->
                 depositReqRef?.child(dep.id)?.setValue(dep.toMap())
-                firestore?.collection("admin_deposit_request")?.document(dep.id)?.set(dep.toMap(), SetOptions.merge())
             }
         } catch (_: Exception) {}
 
@@ -122,7 +110,6 @@ class AdminRequestRepository(private val context: Context) {
         try {
             _withdrawRequestsFlow.value.forEach { wdr ->
                 withdrawReqRef?.child(wdr.id)?.setValue(wdr.toMap())
-                firestore?.collection("admin_withdraw_request")?.document(wdr.id)?.set(wdr.toMap(), SetOptions.merge())
             }
         } catch (_: Exception) {}
 
@@ -135,7 +122,6 @@ class AdminRequestRepository(private val context: Context) {
         try {
             _verificationRequestsFlow.value.forEach { ver ->
                 verificationReqRef?.child(ver.id)?.setValue(ver.toMap())
-                firestore?.collection("admin_verification_request")?.document(ver.id)?.set(ver.toMap(), SetOptions.merge())
             }
         } catch (_: Exception) {}
 
@@ -148,7 +134,6 @@ class AdminRequestRepository(private val context: Context) {
         try {
             _monetizationRequestsFlow.value.forEach { mon ->
                 monetizationReqRef?.child(mon.id)?.setValue(mon.toMap())
-                firestore?.collection("admin_monetization_request")?.document(mon.id)?.set(mon.toMap(), SetOptions.merge())
             }
         } catch (_: Exception) {}
 
@@ -160,10 +145,6 @@ class AdminRequestRepository(private val context: Context) {
         try {
             pinRef?.setValue(initialPin)
             penRef?.setValue(initialPin)
-            firestore?.collection("admin_pin")?.document("security")?.set(
-                mapOf("pin" to initialPin, "updatedAt" to System.currentTimeMillis()),
-                SetOptions.merge()
-            )
         } catch (_: Exception) {}
 
         // Start Firebase real-time listeners for all domains with admin_ node names
@@ -243,10 +224,6 @@ class AdminRequestRepository(private val context: Context) {
 
         try {
             maintenanceRef?.setValue(config.toMap())
-            firestore?.collection("admin_maintenance")?.document("config")?.set(
-                config.toMap(),
-                SetOptions.merge()
-            )
             onComplete?.invoke(true)
         } catch (e: Exception) {
             onComplete?.invoke(true)
@@ -305,10 +282,6 @@ class AdminRequestRepository(private val context: Context) {
         try {
             pinRef?.setValue(cleanPin)
             penRef?.setValue(cleanPin)
-            firestore?.collection("admin_pin")?.document("security")?.set(
-                mapOf("pin" to cleanPin, "updatedAt" to System.currentTimeMillis()),
-                SetOptions.merge()
-            )
             onComplete(true)
         } catch (e: Exception) {
             onComplete(true)
@@ -326,7 +299,6 @@ class AdminRequestRepository(private val context: Context) {
                 "updatedAt" to System.currentTimeMillis()
             )
             statsRef?.setValue(statsMap)
-            firestore?.collection("admin_stats")?.document("overview")?.set(statsMap, SetOptions.merge())
         } catch (_: Exception) {}
     }
 
@@ -469,7 +441,6 @@ class AdminRequestRepository(private val context: Context) {
                         savePaymentMethodsLocally(defaults)
                         defaults.forEach { pm ->
                             paymentMethodsRef?.child(pm.id)?.setValue(pm.toMap())
-                            firestore?.collection("admin_payment_methods")?.document(pm.id)?.set(pm.toMap(), SetOptions.merge())
                         }
                     }
                 }
@@ -560,10 +531,9 @@ class AdminRequestRepository(private val context: Context) {
         _paymentMethodsFlow.value = current
         savePaymentMethodsLocally(current)
 
-        // Sync to Firebase Realtime Database and Firestore
+        // Sync to Firebase Realtime Database
         try {
             paymentMethodsRef?.child(item.id)?.setValue(item.toMap())
-            firestore?.collection("admin_payment_methods")?.document(item.id)?.set(item.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
     }
 
@@ -578,7 +548,6 @@ class AdminRequestRepository(private val context: Context) {
         if (updatedItem != null) {
             try {
                 paymentMethodsRef?.child(id)?.child("isActive")?.setValue(updatedItem.isActive)
-                firestore?.collection("admin_payment_methods")?.document(id)?.update("isActive", updatedItem.isActive)
             } catch (_: Exception) {}
         }
     }
@@ -590,7 +559,6 @@ class AdminRequestRepository(private val context: Context) {
 
         try {
             paymentMethodsRef?.child(id)?.removeValue()
-            firestore?.collection("admin_payment_methods")?.document(id)?.delete()
         } catch (_: Exception) {}
     }
 
@@ -620,7 +588,6 @@ class AdminRequestRepository(private val context: Context) {
                         saveDepositRequestsLocally(defaults)
                         defaults.forEach { dep ->
                             depositReqRef?.child(dep.id)?.setValue(dep.toMap())
-                            firestore?.collection("admin_deposit_request")?.document(dep.id)?.set(dep.toMap(), SetOptions.merge())
                         }
                     }
                 }
@@ -744,10 +711,9 @@ class AdminRequestRepository(private val context: Context) {
         _depositRequestsFlow.value = updated
         saveDepositRequestsLocally(updated)
 
-        // Save directly to Firebase Realtime Database & Firestore
+        // Save directly to Firebase Realtime Database
         try {
             depositReqRef?.child(item.id)?.setValue(item.toMap())
-            firestore?.collection("admin_deposit_request")?.document(item.id)?.set(item.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
 
         // Record a single PENDING transaction in wallet repository so user sees it as Pending
@@ -777,10 +743,9 @@ class AdminRequestRepository(private val context: Context) {
         _depositRequestsFlow.value = current
         saveDepositRequestsLocally(current)
 
-        // Sync to Firebase RTDB and Firestore
+        // Sync to Firebase RTDB
         try {
             depositReqRef?.child(requestId)?.updateChildren(mapOf("status" to "APPROVED"))
-            firestore?.collection("admin_deposit_request")?.document(requestId)?.update("status", "APPROVED")
         } catch (_: Exception) {}
 
         // Update the existing pending transaction to COMPLETED (single card updated, no duplicate!)
@@ -805,10 +770,9 @@ class AdminRequestRepository(private val context: Context) {
         _depositRequestsFlow.value = current
         saveDepositRequestsLocally(current)
 
-        // Sync to Firebase RTDB and Firestore
+        // Sync to Firebase RTDB
         try {
             depositReqRef?.child(requestId)?.updateChildren(mapOf("status" to "REJECTED", "adminNote" to adminNote))
-            firestore?.collection("admin_deposit_request")?.document(requestId)?.update(mapOf("status" to "REJECTED", "adminNote" to adminNote))
         } catch (_: Exception) {}
 
         // Update the existing pending transaction to REJECTED
@@ -849,7 +813,6 @@ class AdminRequestRepository(private val context: Context) {
                         saveWithdrawRequestsLocally(defaults)
                         defaults.forEach { wdr ->
                             withdrawReqRef?.child(wdr.id)?.setValue(wdr.toMap())
-                            firestore?.collection("admin_withdraw_request")?.document(wdr.id)?.set(wdr.toMap(), SetOptions.merge())
                         }
                     }
                 }
@@ -967,10 +930,9 @@ class AdminRequestRepository(private val context: Context) {
         _withdrawRequestsFlow.value = updated
         saveWithdrawRequestsLocally(updated)
 
-        // Save directly to Firebase Realtime Database & Firestore
+        // Save directly to Firebase Realtime Database
         try {
             withdrawReqRef?.child(item.id)?.setValue(item.toMap())
-            firestore?.collection("admin_withdraw_request")?.document(item.id)?.set(item.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
 
         return item
@@ -988,10 +950,9 @@ class AdminRequestRepository(private val context: Context) {
         _withdrawRequestsFlow.value = current
         saveWithdrawRequestsLocally(current)
 
-        // Sync to Firebase RTDB and Firestore
+        // Sync to Firebase RTDB
         try {
             withdrawReqRef?.child(requestId)?.updateChildren(mapOf("status" to "APPROVED"))
-            firestore?.collection("admin_withdraw_request")?.document(requestId)?.update("status", "APPROVED")
         } catch (_: Exception) {}
 
         return true
@@ -1009,10 +970,9 @@ class AdminRequestRepository(private val context: Context) {
         _withdrawRequestsFlow.value = current
         saveWithdrawRequestsLocally(current)
 
-        // Sync to Firebase RTDB and Firestore
+        // Sync to Firebase RTDB
         try {
             withdrawReqRef?.child(requestId)?.updateChildren(mapOf("status" to "REJECTED", "adminNote" to adminNote))
-            firestore?.collection("admin_withdraw_request")?.document(requestId)?.update(mapOf("status" to "REJECTED", "adminNote" to adminNote))
         } catch (_: Exception) {}
 
         // Refund money back to user's wallet!
@@ -1046,7 +1006,6 @@ class AdminRequestRepository(private val context: Context) {
                         saveVerificationRequestsLocally(defaults)
                         defaults.forEach { ver ->
                             verificationReqRef?.child(ver.id)?.setValue(ver.toMap())
-                            firestore?.collection("admin_verification_request")?.document(ver.id)?.set(ver.toMap(), SetOptions.merge())
                         }
                     }
                 }
@@ -1172,10 +1131,9 @@ class AdminRequestRepository(private val context: Context) {
         _verificationRequestsFlow.value = updated
         saveVerificationRequestsLocally(updated)
 
-        // Save directly to Firebase Realtime Database & Firestore
+        // Save directly to Firebase Realtime Database
         try {
             verificationReqRef?.child(item.id)?.setValue(item.toMap())
-            firestore?.collection("admin_verification_request")?.document(item.id)?.set(item.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
 
         return item
@@ -1196,10 +1154,9 @@ class AdminRequestRepository(private val context: Context) {
         _verificationRequestsFlow.value = current
         saveVerificationRequestsLocally(current)
 
-        // Sync to Firebase RTDB and Firestore
+        // Sync to Firebase RTDB
         try {
             verificationReqRef?.child(requestId)?.updateChildren(mapOf("status" to "APPROVED"))
-            firestore?.collection("admin_verification_request")?.document(requestId)?.update("status", "APPROVED")
         } catch (_: Exception) {}
 
         // Calculate verified until
@@ -1236,10 +1193,9 @@ class AdminRequestRepository(private val context: Context) {
         _verificationRequestsFlow.value = current
         saveVerificationRequestsLocally(current)
 
-        // Sync to Firebase RTDB and Firestore
+        // Sync to Firebase RTDB
         try {
             verificationReqRef?.child(requestId)?.updateChildren(mapOf("status" to "REJECTED", "adminNote" to adminNote))
-            firestore?.collection("admin_verification_request")?.document(requestId)?.update(mapOf("status" to "REJECTED", "adminNote" to adminNote))
         } catch (_: Exception) {}
 
         // Revoke any active verification for this user
@@ -1283,7 +1239,6 @@ class AdminRequestRepository(private val context: Context) {
                         saveMonetizationRequestsLocally(defaults)
                         defaults.forEach { mon ->
                             monetizationReqRef?.child(mon.id)?.setValue(mon.toMap())
-                            firestore?.collection("admin_monetization_request")?.document(mon.id)?.set(mon.toMap(), SetOptions.merge())
                         }
                     }
                 }
@@ -1424,10 +1379,9 @@ class AdminRequestRepository(private val context: Context) {
         _monetizationRequestsFlow.value = updated
         saveMonetizationRequestsLocally(updated)
 
-        // Save directly to Firebase Realtime Database & Firestore
+        // Save directly to Firebase Realtime Database
         try {
             monetizationReqRef?.child(item.id)?.setValue(item.toMap())
-            firestore?.collection("admin_monetization_request")?.document(item.id)?.set(item.toMap(), SetOptions.merge())
         } catch (_: Exception) {}
 
         return item
@@ -1455,10 +1409,9 @@ class AdminRequestRepository(private val context: Context) {
         _monetizationRequestsFlow.value = current
         saveMonetizationRequestsLocally(current)
 
-        // Sync to Firebase RTDB and Firestore
+        // Sync to Firebase RTDB
         try {
             monetizationReqRef?.child(requestId)?.updateChildren(mapOf("status" to "APPROVED"))
-            firestore?.collection("admin_monetization_request")?.document(requestId)?.update("status", "APPROVED")
         } catch (_: Exception) {}
 
         // Set user status to APPROVED
@@ -1482,10 +1435,9 @@ class AdminRequestRepository(private val context: Context) {
         _monetizationRequestsFlow.value = current
         saveMonetizationRequestsLocally(current)
 
-        // Sync to Firebase RTDB and Firestore
+        // Sync to Firebase RTDB
         try {
             monetizationReqRef?.child(requestId)?.updateChildren(mapOf("status" to "REJECTED", "adminNote" to adminNote))
-            firestore?.collection("admin_monetization_request")?.document(requestId)?.update(mapOf("status" to "REJECTED", "adminNote" to adminNote))
         } catch (_: Exception) {}
 
         // Set user status to REJECTED
