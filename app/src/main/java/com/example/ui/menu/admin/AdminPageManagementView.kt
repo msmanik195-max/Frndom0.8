@@ -37,10 +37,10 @@ import java.util.Date
 import java.util.Locale
 
 enum class PageFilterTab(val title: String) {
-    ALL("সকল পেজ"),
-    ACTIVE("সক্রিয়"),
-    BLOCKED("ব্লক করা"),
-    VERIFIED("ভেরিফাইড")
+    ALL("All Pages"),
+    ACTIVE("Active"),
+    BLOCKED("Blocked"),
+    VERIFIED("Verified")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,7 +97,7 @@ fun AdminPageManagementView(
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "পেজ ম্যানেজমেন্ট",
+                                text = "Page Management",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
                                 color = Color(0xFF050505)
@@ -117,7 +117,7 @@ fun AdminPageManagementView(
                             }
                         }
                         Text(
-                            text = "সকল ইউজারের পেজ পরিচালনা ও নিয়ন্ত্রণ",
+                            text = "Manage and oversee all user pages",
                             fontSize = 11.sp,
                             color = Color(0xFF65676B)
                         )
@@ -160,10 +160,10 @@ fun AdminPageManagementView(
                             .padding(14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        AdminStatMiniItem(title = "মোট পেজ", value = "$totalCount", color = Color(0xFFE91E63))
-                        AdminStatMiniItem(title = "সক্রিয়", value = "$activeCount", color = Color(0xFF2E7D32))
-                        AdminStatMiniItem(title = "ব্লকড", value = "$blockedCount", color = Color(0xFFD32F2F))
-                        AdminStatMiniItem(title = "ভেরিফাইড", value = "$verifiedCount", color = Color(0xFF00897B))
+                        AdminStatMiniItem(title = "Total Pages", value = "$totalCount", color = Color(0xFFE91E63))
+                        AdminStatMiniItem(title = "Active", value = "$activeCount", color = Color(0xFF2E7D32))
+                        AdminStatMiniItem(title = "Blocked", value = "$blockedCount", color = Color(0xFFD32F2F))
+                        AdminStatMiniItem(title = "Verified", value = "$verifiedCount", color = Color(0xFF00897B))
                     }
                 }
             }
@@ -173,7 +173,7 @@ fun AdminPageManagementView(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("পেজের নাম, ক্যাটাগরি, ইমেইল, আইডি খুঁজুন...", fontSize = 14.sp) },
+                    placeholder = { Text("Search by page name, category, email, ID...", fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Search", tint = Color(0xFF65676B))
                     },
@@ -249,13 +249,13 @@ fun AdminPageManagementView(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "কোন পেজ পাওয়া যায়নি",
+                                text = "No pages found",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF65676B)
                             )
                             Text(
-                                text = "ইউজাররা পেজ তৈরি করলে এখানে দেখা যাবে",
+                                text = "When users create pages, they will appear here",
                                 fontSize = 12.sp,
                                 color = Color(0xFF8A8D91)
                             )
@@ -272,7 +272,7 @@ fun AdminPageManagementView(
                             repository.setPageBlocked(page.id, newStatus)
                             Toast.makeText(
                                 context,
-                                if (newStatus) "পেজ '${page.name}' ব্লক করা হয়েছে" else "পেজ '${page.name}' আনব্লক করা হয়েছে",
+                                if (newStatus) "Page '${page.name}' blocked" else "Page '${page.name}' unblocked",
                                 Toast.LENGTH_SHORT
                             ).show()
                         },
@@ -293,7 +293,7 @@ fun AdminPageManagementView(
             onSave = { updated ->
                 repository.updatePage(updated)
                 editingPage = null
-                Toast.makeText(context, "পেজ সফলভাবে আপডেট হয়েছে", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Page successfully updated", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -303,25 +303,25 @@ fun AdminPageManagementView(
         AlertDialog(
             onDismissRequest = { deletingPage = null },
             icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFD32F2F)) },
-            title = { Text("পেজ মুছে ফেলতে চান?", fontWeight = FontWeight.Bold) },
+            title = { Text("Delete Page?", fontWeight = FontWeight.Bold) },
             text = {
-                Text("আপনি কি নিশ্চিত যে '${page.name}' পেজটি স্থায়ীভাবে ডাটাবেজ থেকে মুছে ফেলতে চান? এটি আর ফিরিয়ে আনা যাবে না।")
+                Text("Are you sure you want to permanently delete '${page.name}' from the database? This action cannot be undone.")
             },
             confirmButton = {
                 Button(
                     onClick = {
                         repository.deletePage(page.id)
                         deletingPage = null
-                        Toast.makeText(context, "পেজ মুছে ফেলা হয়েছে", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Page deleted", Toast.LENGTH_SHORT).show()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
                 ) {
-                    Text("হ্যাঁ, ডিলিট করুন", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Yes, Delete", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 OutlinedButton(onClick = { deletingPage = null }) {
-                    Text("বাতিল")
+                    Text("Cancel")
                 }
             }
         )
@@ -335,7 +335,7 @@ fun AdminPageManagementView(
             onSave = { isVerified, badgeType, expiresAt ->
                 repository.setPageVerification(page.id, isVerified, badgeType, expiresAt)
                 badgeManagingPage = null
-                Toast.makeText(context, "ভেরিফিকেশন ব্যাজ আপডেট হয়েছে", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Verification badge updated", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -343,18 +343,18 @@ fun AdminPageManagementView(
     // 4. Verification Expiry / Validity Dialog (Increase / Decrease)
     expiryManagingPage?.let { page ->
         AdminBadgeExpiryDialog(
-            title = "পেজ ব্যাজের মেয়াদ পরিবর্তন",
+            title = "Adjust Page Badge Expiry",
             currentExpiry = page.badgeExpiresAt,
             onDismiss = { expiryManagingPage = null },
             onAdjustDays = { days ->
                 repository.adjustPageBadgeExpiry(page.id, days)
                 expiryManagingPage = null
-                Toast.makeText(context, "মেয়াদ আপডেট হয়েছে", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Badge expiry updated", Toast.LENGTH_SHORT).show()
             },
             onSetCustomExpiry = { expiryMs ->
                 repository.setPageVerification(page.id, true, page.badgeType, expiryMs)
                 expiryManagingPage = null
-                Toast.makeText(context, "মেয়াদ আপডেট হয়েছে", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Badge expiry updated", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -464,7 +464,7 @@ private fun AdminPageCard(
                             color = Color(0xFFE3F2FD)
                         ) {
                             Text(
-                                text = "${page.followersCount} ফলোয়ার্স",
+                                text = "${page.followersCount} followers",
                                 fontSize = 11.sp,
                                 color = Color(0xFF1976D2),
                                 fontWeight = FontWeight.Medium,
@@ -477,7 +477,7 @@ private fun AdminPageCard(
                             color = Color(0xFFFFF3E0)
                         ) {
                             Text(
-                                text = "${page.likesCount} লাইকস",
+                                text = "${page.likesCount} likes",
                                 fontSize = 11.sp,
                                 color = Color(0xFFE65100),
                                 fontWeight = FontWeight.Medium,
@@ -493,7 +493,7 @@ private fun AdminPageCard(
                     color = if (page.isBlocked) Color(0xFFFFEBEE) else Color(0xFFE8F5E9)
                 ) {
                     Text(
-                        text = if (page.isBlocked) "ব্লকড" else "সক্রিয়",
+                        text = if (page.isBlocked) "Blocked" else "Active",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (page.isBlocked) Color(0xFFD32F2F) else Color(0xFF2E7D32),
@@ -542,13 +542,13 @@ private fun AdminPageCard(
             ) {
                 Column {
                     Text(
-                        text = "তৈরি: ${dateFormat.format(Date(page.createdAt))}",
+                        text = "Created: ${dateFormat.format(Date(page.createdAt))}",
                         fontSize = 11.sp,
                         color = Color(0xFF8A8D91)
                     )
                     if (page.creatorId.isNotBlank()) {
                         Text(
-                            text = "ক্রিয়েটর আইডি: ${page.creatorId}",
+                            text = "Creator ID: ${page.creatorId}",
                             fontSize = 10.sp,
                             color = Color(0xFF8A8D91),
                             maxLines = 1,
@@ -576,15 +576,15 @@ private fun AdminPageCard(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             val expiryText = if (page.badgeExpiresAt == 0L) {
-                                "আজীবন"
+                                "Lifetime"
                             } else if (isVerifiedActive) {
                                 val remainingDays = ((page.badgeExpiresAt - System.currentTimeMillis()) / (1000 * 60 * 60 * 24)).coerceAtLeast(0)
-                                "$remainingDays দিন বাকি"
+                                "$remainingDays days left"
                             } else {
-                                "মেয়াদ শেষ"
+                                "Expired"
                             }
                             Text(
-                                text = "ব্যাজ: $expiryText",
+                                text = "Badge: $expiryText",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isVerifiedActive) Color(0xFF1877F2) else Color(0xFFD32F2F)
@@ -610,7 +610,7 @@ private fun AdminPageCard(
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("ইডিট", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Edit", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
 
                 // 2. Block / Unblock
@@ -631,7 +631,7 @@ private fun AdminPageCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (page.isBlocked) "আনব্লক" else "ব্লক",
+                        text = if (page.isBlocked) "Unblock" else "Block",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -653,7 +653,7 @@ private fun AdminPageCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (page.isVerified) "ব্যাজ অন" else "ব্যাজ অফ",
+                        text = if (page.isVerified) "Badge ON" else "Badge OFF",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (page.isVerified) Color(0xFF1877F2) else Color(0xFF65676B)
@@ -701,7 +701,7 @@ fun AdminEditPageDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("পেজ তথ্য সম্পাদনা (Edit Page)", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+        title = { Text("Edit Page Details", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -710,7 +710,7 @@ fun AdminEditPageDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("পেজের নাম") },
+                    label = { Text("Page Name") },
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -719,7 +719,7 @@ fun AdminEditPageDialog(
                 OutlinedTextField(
                     value = category,
                     onValueChange = { category = it },
-                    label = { Text("ক্যাটাগরি (Creator, Business, Media...)") },
+                    label = { Text("Category (Creator, Business, Media...)") },
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -732,7 +732,7 @@ fun AdminEditPageDialog(
                     OutlinedTextField(
                         value = followersCountStr,
                         onValueChange = { followersCountStr = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("ফলোয়ার্স সংখ্যা") },
+                        label = { Text("Followers Count") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         shape = RoundedCornerShape(10.dp),
@@ -741,7 +741,7 @@ fun AdminEditPageDialog(
                     OutlinedTextField(
                         value = likesCountStr,
                         onValueChange = { likesCountStr = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("লাইকস সংখ্যা") },
+                        label = { Text("Likes Count") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         shape = RoundedCornerShape(10.dp),
@@ -752,7 +752,7 @@ fun AdminEditPageDialog(
                 OutlinedTextField(
                     value = avatarUrl,
                     onValueChange = { avatarUrl = it },
-                    label = { Text("প্রোফাইল/লোগো URL") },
+                    label = { Text("Profile/Logo URL") },
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -761,7 +761,7 @@ fun AdminEditPageDialog(
                 OutlinedTextField(
                     value = coverUrl,
                     onValueChange = { coverUrl = it },
-                    label = { Text("কভার ছবির URL") },
+                    label = { Text("Cover Image URL") },
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -770,7 +770,7 @@ fun AdminEditPageDialog(
                 OutlinedTextField(
                     value = website,
                     onValueChange = { website = it },
-                    label = { Text("ওয়েবসাইট URL (ঐচ্ছিক)") },
+                    label = { Text("Website URL (Optional)") },
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -779,7 +779,7 @@ fun AdminEditPageDialog(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("পেজের বিবরণ (Bio/Description)") },
+                    label = { Text("Page Description (Bio/Description)") },
                     maxLines = 3,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -807,12 +807,12 @@ fun AdminEditPageDialog(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63))
             ) {
-                Text("সংরক্ষণ করুন", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Save Changes", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
-                Text("বাতিল")
+                Text("Cancel")
             }
         }
     )
@@ -837,7 +837,7 @@ fun AdminPageBadgeDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Verified, contentDescription = null, tint = Color(0xFF1877F2))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("পেজ ভেরিফিকেশন ব্যাজ কন্ট্রোল", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Page Verification Badge Control", fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
         },
         text = {
@@ -855,9 +855,9 @@ fun AdminPageBadgeDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("ভেরিফিকেশন ব্যাজ চালু", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("Enable Verification Badge", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         Text(
-                            text = if (isVerified) "পেজের নামের পাশে ভেরিফাইড টিক চিহ্ন থাকবে" else "ব্যাজ বন্ধ থাকবে",
+                            text = if (isVerified) "Verified badge icon displayed next to page" else "Badge is disabled",
                             fontSize = 12.sp,
                             color = Color(0xFF65676B)
                         )
@@ -874,7 +874,7 @@ fun AdminPageBadgeDialog(
 
                 if (isVerified) {
                     // Badge Color Type
-                    Text("ব্যাজের ধরন ও রঙ:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Badge Type & Color:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -898,7 +898,7 @@ fun AdminPageBadgeDialog(
                             ) {
                                 Icon(Icons.Default.Verified, contentDescription = null, tint = Color(0xFF1877F2), modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("ব্লু ব্যাজ", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1877F2))
+                                Text("Blue Badge", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1877F2))
                             }
                         }
 
@@ -921,22 +921,22 @@ fun AdminPageBadgeDialog(
                             ) {
                                 VerificationBadge(size = 20.dp, show = true)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("গ্রিন ব্যাজ", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF2E7D32))
+                                Text("Green Badge", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF2E7D32))
                             }
                         }
                     }
 
                     // Expiry options
-                    Text("মেয়াদ নির্ধারণ:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Select Validity:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         listOf(
-                            "LIFETIME" to "আজীবন",
-                            "30_DAYS" to "৩০ দিন",
-                            "90_DAYS" to "৯০ দিন",
-                            "365_DAYS" to "১ বছর"
+                            "LIFETIME" to "Lifetime",
+                            "30_DAYS" to "30 Days",
+                            "90_DAYS" to "90 Days",
+                            "365_DAYS" to "1 Year"
                         ).forEach { (key, label) ->
                             val isSelected = validityOption == key
                             Surface(
@@ -975,12 +975,12 @@ fun AdminPageBadgeDialog(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2))
             ) {
-                Text("আপডেট করুন", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Update", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
-                Text("বাতিল")
+                Text("Cancel")
             }
         }
     )

@@ -69,12 +69,16 @@ class AdminRequestRepository(private val context: Context) {
     private val pinRef: DatabaseReference? by lazy { rtdb?.getReference("admin_pin") }
     private val penRef: DatabaseReference? by lazy { rtdb?.getReference("admin_pen") }
     private val maintenanceRef: DatabaseReference? by lazy { rtdb?.getReference("admin_maintenance") }
+    private val monetizationSettingsRef: DatabaseReference? by lazy { rtdb?.getReference("admin_monetization_settings") }
 
     private val _adminPinFlow = MutableStateFlow<String>(loadAdminPin())
     val adminPinFlow: StateFlow<String> = _adminPinFlow.asStateFlow()
 
     private val _maintenanceConfigFlow = MutableStateFlow<MaintenanceConfig>(loadMaintenanceConfig())
     val maintenanceConfigFlow: StateFlow<MaintenanceConfig> = _maintenanceConfigFlow.asStateFlow()
+
+    private val _monetizationSettingsFlow = MutableStateFlow<com.example.data.model.MonetizationSettings>(loadMonetizationSettings())
+    val monetizationSettingsFlow: StateFlow<com.example.data.model.MonetizationSettings> = _monetizationSettingsFlow.asStateFlow()
 
     init {
         // 1. Payment methods
@@ -150,6 +154,7 @@ class AdminRequestRepository(private val context: Context) {
         // Start Firebase real-time listeners for all domains with admin_ node names
         listenToFirebaseAdminPin()
         listenToFirebaseMaintenance()
+        listenToFirebaseMonetizationSettings()
         listenToFirebasePaymentMethods()
         listenToFirebaseDepositRequests()
         listenToFirebaseWithdrawRequests()
@@ -224,6 +229,100 @@ class AdminRequestRepository(private val context: Context) {
 
         try {
             maintenanceRef?.setValue(config.toMap())
+            onComplete?.invoke(true)
+        } catch (e: Exception) {
+            onComplete?.invoke(true)
+        }
+    }
+
+    private fun loadMonetizationSettings(): com.example.data.model.MonetizationSettings {
+        val reelRate = prefs.getFloat("admin_monetization_reel_rate", 0.5f).toDouble()
+        val imageRate = prefs.getFloat("admin_monetization_image_rate", 0.2f).toDouble()
+        val textRate = prefs.getFloat("admin_monetization_text_rate", 0.1f).toDouble()
+        val minTransfer = prefs.getFloat("admin_monetization_min_transfer", 5.0f).toDouble()
+        val reqViews = prefs.getInt("admin_monetization_req_views", 500)
+        val reqFollowers = prefs.getInt("admin_monetization_req_followers", 100)
+        val reqPosts = prefs.getInt("admin_monetization_req_posts", 10)
+        val reqReels = prefs.getInt("admin_monetization_req_reels", 5)
+        val reqAge = prefs.getInt("admin_monetization_req_age", 7)
+        val updatedAt = prefs.getLong("admin_monetization_updated_at", System.currentTimeMillis())
+        return com.example.data.model.MonetizationSettings(reelRate, imageRate, textRate, minTransfer, reqViews, reqFollowers, reqPosts, reqReels, reqAge, updatedAt)
+    }
+
+    private fun saveMonetizationSettingsLocally(settings: com.example.data.model.MonetizationSettings) {
+        prefs.edit()
+            .putFloat("admin_monetization_reel_rate", settings.reelRatePer1000.toFloat())
+            .putFloat("admin_monetization_image_rate", settings.imageRatePer1000.toFloat())
+            .putFloat("admin_monetization_text_rate", settings.textRatePer1000.toFloat())
+            .putFloat("admin_monetization_min_transfer", settings.minTransferAmount.toFloat())
+            .putInt("admin_monetization_req_views", settings.reqTotalViews)
+            .putInt("admin_monetization_req_followers", settings.reqTotalFollowers)
+            .putInt("admin_monetization_req_posts", settings.reqTotalPosts)
+            .putInt("admin_monetization_req_reels", settings.reqTotalReels)
+            .putInt("admin_monetization_req_age", settings.reqAccountAgeDays)
+            .putLong("admin_monetization_updated_at", settings.updatedAt)
+            .apply()
+    }
+
+    private fun listenToFirebaseMonetizationSettings() {
+        try {
+            monetizationSettingsRef?.addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.exists()) {
+                        val reelRate = snapshot.child("reelRatePer1000").getValue(Double::class.java) ?: 0.5
+                        val imageRate = snapshot.child("imageRatePer1000").getValue(Double::class.java) ?: 0.2
+                        val textRate = snapshot.child("textRatePer1000").getValue(Double::class.java) ?: 0.1
+                        val minTransfer = snapshot.child("minTransferAmount").getValue(Double::class.java) ?: 5.0
+                        val reqViews = snapshot.child("reqTotalViews").getValue(Int::class.java) ?: 500
+                        val reqFollowers = snapshot.child("reqTotalFollowers").getValue(Int::class.java) ?: 100
+                        val reqPosts = snapshot.child("reqTotalPosts").getValue(Int::class.java) ?: 10
+                        val reqReels = snapshot.child("reqTotalReels").getValue(Int::class.java) ?: 5
+                        val reqAge = snapshot.child("reqAccountAgeDays").getValue(Int::class.java) ?: 7
+                        val updatedAt = snapshot.child("updatedAt").getValue(Long::class.java) ?: System.currentTimeMillis()
+                        val cfg = com.example.data.model.MonetizationSettings(reelRate, imageRate, textRate, minTransfer, reqViews, reqFollowers, reqPosts, reqReels, reqAge, updatedAt)
+                        _monetizationSettingsFlow.value = cfg
+                        saveMonetizationSettingsLocally(cfg)
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.w("AdminRequestRepository", "MonetizationSettings listener cancelled: ${error.message}")
+                }
+            })
+        } catch (e: Exception) {
+            Log.e("AdminRequestRepository", "Error setting up MonetizationSettings listener: ${e.message}")
+        }
+    }
+
+    fun setMonetizationSettings(
+        reelRate: Double,
+        imageRate: Double,
+        textRate: Double,
+        minTransfer: Double,
+        reqViews: Int = 500,
+        reqFollowers: Int = 100,
+        reqPosts: Int = 10,
+        reqReels: Int = 5,
+        reqAge: Int = 7,
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        val config = com.example.data.model.MonetizationSettings(
+            reelRatePer1000 = reelRate,
+            imageRatePer1000 = imageRate,
+            textRatePer1000 = textRate,
+            minTransferAmount = minTransfer,
+            reqTotalViews = reqViews,
+            reqTotalFollowers = reqFollowers,
+            reqTotalPosts = reqPosts,
+            reqTotalReels = reqReels,
+            reqAccountAgeDays = reqAge,
+            updatedAt = System.currentTimeMillis()
+        )
+        _monetizationSettingsFlow.value = config
+        saveMonetizationSettingsLocally(config)
+
+        try {
+            monetizationSettingsRef?.setValue(config.toMap())
             onComplete?.invoke(true)
         } catch (e: Exception) {
             onComplete?.invoke(true)

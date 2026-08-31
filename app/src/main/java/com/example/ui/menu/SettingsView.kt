@@ -24,7 +24,9 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Notifications
@@ -429,6 +431,53 @@ fun SettingsView(
                     elevation = CardDefaults.cardElevation(1.dp)
                 ) {
                     Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                        // Dark Mode Switch
+                        val isDarkMode by appSettingsRepository.isDarkMode.collectAsState()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = if (isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                    contentDescription = null,
+                                    tint = if (isDarkMode) Color(0xFFFFD54F) else Color(0xFFF57C00),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column(modifier = Modifier.padding(end = 8.dp)) {
+                                    Text(
+                                        text = if (isDarkMode) "Dark Mode" else "Light Mode",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF050505)
+                                    )
+                                    Text(
+                                        text = if (isDarkMode) "Dark theme enabled across app" else "Light theme enabled across app",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF65676B),
+                                        lineHeight = 16.sp
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = isDarkMode,
+                                onCheckedChange = { appSettingsRepository.setDarkMode(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFF1877F2)
+                                )
+                            )
+                        }
+
+                        Divider(thickness = 0.5.dp, color = Color(0xFFE4E6EB))
+
                         // Auto-play Videos Switch
                         Row(
                             modifier = Modifier

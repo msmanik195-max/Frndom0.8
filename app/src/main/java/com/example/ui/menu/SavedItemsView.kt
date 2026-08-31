@@ -447,7 +447,7 @@ fun SavedProductCard(
     onUnsave: () -> Unit,
     onMessageSeller: () -> Unit
 ) {
-    val formattedPrice = "৳ " + NumberFormat.getNumberInstance(Locale.US).format(item.price.toLong())
+    val formattedPrice = "BDT " + NumberFormat.getNumberInstance(Locale.US).format(item.price.toLong())
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
@@ -511,7 +511,7 @@ fun SavedProductCard(
 
             // Details
             Column(modifier = Modifier.weight(1f)) {
-                // Price in BDT ৳
+                // Price in BDT
                 Text(
                     text = formattedPrice,
                     fontSize = 16.sp,

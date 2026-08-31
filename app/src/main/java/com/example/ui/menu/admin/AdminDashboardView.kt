@@ -22,14 +22,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudQueue
@@ -43,9 +46,12 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.Pages
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PostAdd
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.TrendingUp
@@ -99,6 +105,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.UserProfile
 import com.example.data.repository.AdminRequestRepository
+import com.example.data.repository.AdvertisementRepository
 import com.example.data.repository.ChatRepository
 import com.example.data.repository.GroupPageRepository
 import com.example.data.repository.PostRepository
@@ -117,7 +124,9 @@ enum class AdminActiveScreen {
     WITHDRAW_REQUESTS,
     MONETIZATION_REQUESTS,
     VERIFICATION_REQUESTS,
-    PAYMENT_METHODS
+    PAYMENT_METHODS,
+    SETTINGS,
+    AD_MANAGEMENT
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -133,6 +142,7 @@ fun AdminDashboardView(
     val chatRepository = remember { ChatRepository(context) }
     val groupPageRepository = remember { GroupPageRepository(context) }
     val adminRepo = remember { AdminRequestRepository.getInstance(context) }
+    val adRepo = remember { AdvertisementRepository.getInstance(context) }
     val scope = rememberCoroutineScope()
 
     // Real-time Data Sources
@@ -141,6 +151,7 @@ fun AdminDashboardView(
     val totalMessages by chatRepository.getTotalMessagesCountFlow().collectAsState(initial = 0)
     val groups by groupPageRepository.groupsFlow.collectAsState()
     val pages by groupPageRepository.pagesFlow.collectAsState()
+    val allAds by adRepo.advertisementsFlow.collectAsState()
 
     val totalGroupsCount = groups.size
     val totalPagesCount = pages.size
@@ -168,6 +179,8 @@ fun AdminDashboardView(
     val pendingWithdrawsCount = withdrawRequests.count { it.status == "PENDING" }
     val pendingMonetizationsCount = monetizationRequests.count { it.status == "PENDING" }
     val pendingVerificationsCount = verificationRequests.count { it.status == "PENDING" }
+    val pendingAdsCount = allAds.count { it.status == "PENDING" }
+    val runningAdsCount = allAds.count { it.status == "RUNNING" }
 
     val totalPendingDepositAmount = depositRequests.filter { it.status == "PENDING" }.sumOf { it.amount }
     val totalPendingWithdrawAmount = withdrawRequests.filter { it.status == "PENDING" }.sumOf { it.amount }
@@ -256,6 +269,18 @@ fun AdminDashboardView(
                 modifier = modifier
             )
         }
+        AdminActiveScreen.SETTINGS -> {
+            AdminSettingsView(
+                adminRepo = adminRepo,
+                onBack = { currentAdminScreen = AdminActiveScreen.DASHBOARD_MAIN }
+            )
+        }
+        AdminActiveScreen.AD_MANAGEMENT -> {
+            AdminAdvertisementManagementView(
+                onBack = { currentAdminScreen = AdminActiveScreen.DASHBOARD_MAIN },
+                modifier = modifier
+            )
+        }
         AdminActiveScreen.DASHBOARD_MAIN -> {
             ModalNavigationDrawer(
                 drawerState = drawerState,
@@ -303,9 +328,10 @@ fun AdminDashboardView(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                        // 1. Dashboard Main
+                            // 1. Dashboard Main
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Dashboard, contentDescription = null, tint = Color(0xFF1877F2)) },
                             label = { Text("Dashboard Overview", fontWeight = FontWeight.SemiBold) },
@@ -351,7 +377,7 @@ fun AdminDashboardView(
                         // 2.1 Group Management
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Group, contentDescription = null, tint = Color(0xFF1877F2)) },
-                            label = { Text("Group Management (গ্রুপ)", fontWeight = FontWeight.Medium) },
+                            label = { Text("Group Management", fontWeight = FontWeight.Medium) },
                             badge = {
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
@@ -379,7 +405,7 @@ fun AdminDashboardView(
                         // 2.2 Page Management
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Flag, contentDescription = null, tint = Color(0xFFE91E63)) },
-                            label = { Text("Page Management (পেজ)", fontWeight = FontWeight.Medium) },
+                            label = { Text("Page Management", fontWeight = FontWeight.Medium) },
                             badge = {
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
@@ -526,6 +552,36 @@ fun AdminDashboardView(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                         )
 
+                        // 6.1 Advertisement Management
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.Campaign, contentDescription = null, tint = Color(0xFF1877F2)) },
+                            label = { Text("Advertisement Management", fontWeight = FontWeight.Medium) },
+                            badge = {
+                                if (pendingAdsCount > 0) {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Color(0xFFE53935)
+                                    ) {
+                                        Text(
+                                            text = "$pendingAdsCount",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            },
+                            selected = false,
+                            onClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    currentAdminScreen = AdminActiveScreen.AD_MANAGEMENT
+                                }
+                            },
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                        )
+
                         Divider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp), color = Color(0xFFE4E6EB))
 
                         // 7. Payment Methods
@@ -603,6 +659,22 @@ fun AdminDashboardView(
                             },
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                         )
+
+                        // 10. Settings
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF607D8B)) },
+                            label = { Text("Settings", fontWeight = FontWeight.Medium) },
+                            selected = false,
+                            onClick = {
+                                scope.launch {
+                                    drawerState.close()
+                                    currentAdminScreen = AdminActiveScreen.SETTINGS
+                                }
+                            },
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        }
                     }
                 }
             ) {
@@ -863,7 +935,7 @@ fun AdminDashboardView(
                                             Spacer(modifier = Modifier.width(12.dp))
                                             Column {
                                                 Text(
-                                                    text = "Maintenance Mode (মেইনটেনেন্স মোড)",
+                                                    text = "Maintenance Mode",
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 15.sp,
                                                     color = if (maintenanceConfig.isEnabled) Color.White else Color(0xFF1C1E21)
@@ -1123,7 +1195,7 @@ fun AdminDashboardView(
                             AdminMetricCard(
                                 title = "Pending Deposits",
                                 count = "$pendingDepositsCount",
-                                subtitle = "৳ ${String.format(Locale.US, "%.0f", totalPendingDepositAmount)} BDT",
+                                subtitle = "BDT ${String.format(Locale.US, "%.0f", totalPendingDepositAmount)}",
                                 icon = Icons.Default.AccountBalanceWallet,
                                 iconBg = Color(0xFFE8F5E9),
                                 iconTint = Color(0xFF2E7D32),
@@ -1137,7 +1209,7 @@ fun AdminDashboardView(
                             AdminMetricCard(
                                 title = "Pending Withdraws",
                                 count = "$pendingWithdrawsCount",
-                                subtitle = "৳ ${String.format(Locale.US, "%.0f", totalPendingWithdrawAmount)} BDT",
+                                subtitle = "BDT ${String.format(Locale.US, "%.0f", totalPendingWithdrawAmount)}",
                                 icon = Icons.Default.AccountBalance,
                                 iconBg = Color(0xFFFFEBEE),
                                 iconTint = Color(0xFFC62828),
@@ -1171,6 +1243,20 @@ fun AdminDashboardView(
                                 iconTint = Color(0xFFE65100),
                                 badgeAlert = pendingMonetizationsCount > 0,
                                 onClick = { currentAdminScreen = AdminActiveScreen.MONETIZATION_REQUESTS }
+                            )
+                        }
+
+                        // 15. Advertisement Campaigns
+                        item {
+                            AdminMetricCard(
+                                title = "Ad Campaigns",
+                                count = "$pendingAdsCount",
+                                subtitle = "$runningAdsCount running • ${allAds.size} total",
+                                icon = Icons.Default.Campaign,
+                                iconBg = Color(0xFFE7F3FF),
+                                iconTint = Color(0xFF1877F2),
+                                badgeAlert = pendingAdsCount > 0,
+                                onClick = { currentAdminScreen = AdminActiveScreen.AD_MANAGEMENT }
                             )
                         }
 
@@ -1219,6 +1305,52 @@ fun AdminDashboardView(
                                 totalDeposits = depositRequests.size,
                                 totalWithdraws = withdrawRequests.size
                             )
+                        }
+
+                        // ==========================================
+                        // QUICK LINKS TO ALL MENUS
+                        // ==========================================
+                        item(span = { GridItemSpan(2) }) {
+                            Text(
+                                text = "Quick Navigation",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF050505),
+                                modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+                            )
+                        }
+
+                        val quickLinks = listOf(
+                            Triple("User Management", Icons.Default.People, AdminActiveScreen.USER_MANAGEMENT),
+                            Triple("Group Management", Icons.Default.Groups, AdminActiveScreen.GROUP_MANAGEMENT),
+                            Triple("Page Management", Icons.Default.Pages, AdminActiveScreen.PAGE_MANAGEMENT),
+                            Triple("Deposit Requests", Icons.Default.AccountBalanceWallet, AdminActiveScreen.DEPOSIT_REQUESTS),
+                            Triple("Withdraw Requests", Icons.Default.AccountBalance, AdminActiveScreen.WITHDRAW_REQUESTS),
+                            Triple("Verification", Icons.Default.Verified, AdminActiveScreen.VERIFICATION_REQUESTS),
+                            Triple("Monetization", Icons.Default.MonetizationOn, AdminActiveScreen.MONETIZATION_REQUESTS),
+                            Triple("Ad Management", Icons.Default.Campaign, AdminActiveScreen.AD_MANAGEMENT),
+                            Triple("Payment Setup", Icons.Default.Security, AdminActiveScreen.PAYMENT_METHODS),
+                            Triple("Settings", Icons.Default.Settings, AdminActiveScreen.SETTINGS)
+                        )
+
+                        quickLinks.forEach { (title, icon, screen) ->
+                            item {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().clickable { currentAdminScreen = screen },
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                                    elevation = CardDefaults.cardElevation(1.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(icon, contentDescription = title, tint = Color(0xFF1877F2), modifier = Modifier.size(24.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                    }
+                                }
+                            }
                         }
 
                         item(span = { GridItemSpan(2) }) {

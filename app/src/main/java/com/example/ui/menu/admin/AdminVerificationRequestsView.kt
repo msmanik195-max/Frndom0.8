@@ -341,12 +341,12 @@ fun AdminVerificationRequestsView(
                     )
                 },
                 title = {
-                    Text("Reject & Refund ৳${item.price.toInt()}?", fontWeight = FontWeight.Bold)
+                    Text("Reject & Refund BDT ${item.price.toInt()}?", fontWeight = FontWeight.Bold)
                 },
                 text = {
                     Column {
                         Text(
-                            text = "Rejecting this verification request will refund ৳${item.price.toInt()} back to ${item.userName}'s wallet balance. No badge will be granted.",
+                            text = "Rejecting this verification request will refund BDT ${item.price.toInt()} back to ${item.userName}'s wallet balance. No badge will be granted.",
                             fontSize = 14.sp,
                             color = Color(0xFF050505)
                         )
@@ -486,7 +486,7 @@ private fun VerificationRequestCard(
                         color = Color(0xFF65676B)
                     )
                     Text(
-                        text = "৳ ${item.price.toInt()} BDT",
+                        text = "BDT ${item.price.toInt()}",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF050505)

@@ -17,6 +17,9 @@ class AppSettingsRepository(context: Context) {
     private val _dataSaverEnabled = MutableStateFlow(prefs.getBoolean(KEY_DATA_SAVER_ENABLED, false))
     val dataSaverEnabled: StateFlow<Boolean> = _dataSaverEnabled.asStateFlow()
 
+    private val _isDarkMode = MutableStateFlow(prefs.getBoolean(KEY_DARK_MODE, false))
+    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
+
     fun setAutoPlayVideos(enabled: Boolean) {
         _autoPlayVideos.value = enabled
         prefs.edit().putBoolean(KEY_AUTOPLAY_VIDEOS, enabled).apply()
@@ -32,10 +35,16 @@ class AppSettingsRepository(context: Context) {
         prefs.edit().putBoolean(KEY_DATA_SAVER_ENABLED, enabled).apply()
     }
 
+    fun setDarkMode(enabled: Boolean) {
+        _isDarkMode.value = enabled
+        prefs.edit().putBoolean(KEY_DARK_MODE, enabled).apply()
+    }
+
     companion object {
         private const val KEY_AUTOPLAY_VIDEOS = "autoplay_videos"
         private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
         private const val KEY_DATA_SAVER_ENABLED = "data_saver_enabled"
+        private const val KEY_DARK_MODE = "dark_mode_enabled"
 
         @Volatile
         private var instance: AppSettingsRepository? = null

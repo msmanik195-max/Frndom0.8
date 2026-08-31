@@ -20,11 +20,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,6 +41,10 @@ import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,12 +55,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.data.model.AdvertisementItem
+import com.example.data.repository.AdvertisementRepository
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -127,6 +139,9 @@ fun HomeScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val appSettingsRepository = remember { AppSettingsRepository.getInstance(context) }
     val autoPlayVideos by appSettingsRepository.autoPlayVideos.collectAsState()
+    val adRepo = remember { AdvertisementRepository.getInstance(context) }
+    val allAds by adRepo.advertisementsFlow.collectAsState()
+    val runningAds = remember(allAds) { allAds.filter { it.status == "RUNNING" } }
 
     val effectiveMediaUploadService = remember(mediaUploadService, storageRepository) {
         mediaUploadService ?: MediaUploadService(context, storageRepository ?: StorageRepository(context))
@@ -304,7 +319,7 @@ fun HomeScreen(
                         }
                     }
                 } else {
-                    items(feedPosts, key = { it.id }) { post ->
+                    itemsIndexed(feedPosts, key = { _, post -> post.id }) { index, post ->
                         PostCardItem(
                             post = post,
                             currentUserId = userId,
@@ -344,6 +359,18 @@ fun HomeScreen(
                             }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
+
+                        // Facebook Sponsored Ad insertion after 1st post and every 3rd post
+                        if (runningAds.isNotEmpty() && (index == 0 || (index > 0 && index % 3 == 0))) {
+                            val adToShow = runningAds[(index / 3) % runningAds.size]
+                            SponsoredAdFeedCard(
+                                ad = adToShow,
+                                onAdClick = { clickedAd ->
+                                    adRepo.recordClick(clickedAd.id)
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                     }
                 }
 
@@ -1126,6 +1153,189 @@ fun ShimmerPostCard() {
             
             // Media Image Placeholder
             Box(modifier = Modifier.height(200.dp).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(shimmerColor))
+        }
+    }
+}
+
+@Composable
+fun SponsoredAdFeedCard(
+    ad: AdvertisementItem,
+    onAdClick: (AdvertisementItem) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    LaunchedEffect(ad.id) {
+        AdvertisementRepository.getInstance(context).recordImpression(ad.id)
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(0.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFE4E6EB),
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    if (ad.userAvatar.isNotBlank()) {
+                        AsyncImage(
+                            model = ad.userAvatar,
+                            contentDescription = ad.userName,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = ad.userName.take(1).uppercase(),
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1877F2)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = ad.userName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = Color(0xFF050505)
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Sponsored",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF65676B)
+                        )
+                        Text(text = " • ", fontSize = 12.sp, color = Color(0xFF65676B))
+                        Icon(
+                            imageVector = Icons.Default.Public,
+                            contentDescription = "Public",
+                            tint = Color(0xFF65676B),
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
+            }
+
+            // Ad Headline & Description
+            if (ad.headline.isNotBlank()) {
+                Text(
+                    text = ad.headline,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF050505),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp)
+                )
+            }
+            if (ad.description.isNotBlank()) {
+                Text(
+                    text = ad.description,
+                    fontSize = 14.sp,
+                    color = Color(0xFF1C1E21),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Ad Media Banner
+            if (ad.mediaUrl.isNotBlank()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(230.dp)
+                        .background(Color(0xFFF0F2F5))
+                        .clickable {
+                            onAdClick(ad)
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ad.destinationUrl))
+                                context.startActivity(intent)
+                            } catch (_: Exception) {}
+                        }
+                ) {
+                    AsyncImage(
+                        model = ad.mediaUrl,
+                        contentDescription = "Sponsored Ad",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            // Bottom CTA Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF7F8FA))
+                    .clickable {
+                        onAdClick(ad)
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ad.destinationUrl))
+                            context.startActivity(intent)
+                        } catch (_: Exception) {}
+                    }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    val domain = try {
+                        val host = Uri.parse(ad.destinationUrl).host.orEmpty()
+                        if (host.isNotBlank()) host.uppercase() else "PROMOTION"
+                    } catch (_: Exception) {
+                        "PROMOTION"
+                    }
+                    Text(
+                        text = domain,
+                        fontSize = 11.sp,
+                        color = Color(0xFF65676B),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = ad.campaignName,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF050505),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        onAdClick(ad)
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ad.destinationUrl))
+                            context.startActivity(intent)
+                        } catch (_: Exception) {}
+                    },
+                    shape = RoundedCornerShape(6.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE4E6EB)),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = ad.callToAction.ifBlank { "Learn More" },
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF050505)
+                    )
+                }
+            }
         }
     }
 }

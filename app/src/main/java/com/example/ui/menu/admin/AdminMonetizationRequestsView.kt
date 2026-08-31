@@ -62,6 +62,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.MonetizationRequestItem
 import com.example.data.repository.AdminRequestRepository
+import com.example.data.repository.UserRepository
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -74,6 +78,7 @@ fun AdminMonetizationRequestsView(
 ) {
     val context = LocalContext.current
     val adminRepo = remember { AdminRequestRepository.getInstance(context) }
+    val userRepo = remember { UserRepository(context) }
 
     val monetizationRequests by adminRepo.monetizationRequestsFlow.collectAsState()
     var selectedFilter by remember { mutableStateOf("ALL") }
@@ -305,6 +310,7 @@ fun AdminMonetizationRequestsView(
                 confirmButton = {
                     Button(
                         onClick = {
+                            userRepo.setUserMonetized(item.userId, true)
                             adminRepo.approveMonetizationRequest(item.id)
                             selectedItemForAction = null
                             actionType = null

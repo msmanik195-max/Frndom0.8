@@ -169,7 +169,7 @@ fun WithdrawScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "৳ ${String.format(Locale.US, "%.2f", balance)}",
+                                    text = "BDT ${String.format(Locale.US, "%.2f", balance)}",
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -222,7 +222,7 @@ fun WithdrawScreen(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "৳ ${String.format(Locale.US, "%.2f", lastWithdrawnAmount)} request via ${selectedMethodItem.name} ($accountNumber) is under admin review.",
+                                text = "BDT ${String.format(Locale.US, "%.2f", lastWithdrawnAmount)} request via ${selectedMethodItem.name} ($accountNumber) is under admin review.",
                                 fontSize = 13.sp,
                                 color = Color(0xFF050505),
                                 textAlign = TextAlign.Center,
@@ -284,7 +284,7 @@ fun WithdrawScreen(
                                             .clickable { withdrawAmount = amt }
                                     ) {
                                         Text(
-                                            text = "৳$amt",
+                                            text = "BDT $amt",
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = if (isSelected) Color.White else Color(0xFF050505),
@@ -311,7 +311,7 @@ fun WithdrawScreen(
                                             .clickable { withdrawAmount = amt }
                                     ) {
                                         Text(
-                                            text = "৳$amt",
+                                            text = "BDT $amt",
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = if (isSelected) Color.White else Color(0xFF050505),
@@ -331,7 +331,7 @@ fun WithdrawScreen(
                                     errorMessage = null
                                 },
                                 label = { Text("Custom Amount") },
-                                prefix = { Text("৳ ", fontWeight = FontWeight.Bold) },
+                                prefix = { Text("BDT ", fontWeight = FontWeight.Bold) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
@@ -492,7 +492,7 @@ fun WithdrawScreen(
                                 return@Button
                             }
                             if (amt > balance) {
-                                errorMessage = "Insufficient balance! Your current balance is ৳${String.format(Locale.US, "%.2f", balance)}"
+                                errorMessage = "Insufficient balance! Your current balance is BDT ${String.format(Locale.US, "%.2f", balance)}"
                                 return@Button
                             }
                             if (accountNumber.trim().length < 5) {
@@ -554,7 +554,7 @@ fun WithdrawScreen(
                             Text("Submitting Withdrawal...", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         } else {
                             Text(
-                                text = "Confirm Withdrawal ৳$withdrawAmount",
+                                text = "Confirm Withdrawal BDT $withdrawAmount",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White

@@ -296,12 +296,12 @@ fun AdminWithdrawRequestsView(
                     )
                 },
                 title = {
-                    Text("Approve Withdrawal ৳${item.amount.toInt()}?", fontWeight = FontWeight.Bold)
+                    Text("Approve Withdrawal BDT ${item.amount.toInt()}?", fontWeight = FontWeight.Bold)
                 },
                 text = {
                     Column {
                         Text(
-                            text = "Confirm that you have transferred ৳${item.amount.toInt()} to ${item.userName} via ${item.methodName} (${item.accountNumber}).",
+                            text = "Confirm that you have transferred BDT ${item.amount.toInt()} to ${item.userName} via ${item.methodName} (${item.accountNumber}).",
                             fontSize = 14.sp,
                             color = Color(0xFF050505)
                         )
@@ -352,12 +352,12 @@ fun AdminWithdrawRequestsView(
                     )
                 },
                 title = {
-                    Text("Reject & Refund ৳${item.amount.toInt()}?", fontWeight = FontWeight.Bold)
+                    Text("Reject & Refund BDT ${item.amount.toInt()}?", fontWeight = FontWeight.Bold)
                 },
                 text = {
                     Column {
                         Text(
-                            text = "Rejecting this withdrawal request will immediately refund ৳${item.amount.toInt()} back to ${item.userName}'s wallet balance.",
+                            text = "Rejecting this withdrawal request will immediately refund BDT ${item.amount.toInt()} back to ${item.userName}'s wallet balance.",
                             fontSize = 14.sp,
                             color = Color(0xFF050505)
                         )
@@ -476,7 +476,7 @@ private fun WithdrawRequestCard(
                         color = Color(0xFF65676B)
                     )
                     Text(
-                        text = "৳ ${String.format(Locale.US, "%.2f", item.amount)} BDT",
+                        text = "BDT ${String.format(Locale.US, "%.2f", item.amount)}",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFFE65100)

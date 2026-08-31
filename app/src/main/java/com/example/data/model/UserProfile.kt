@@ -59,6 +59,7 @@ data class UserProfile(
     val isOnline: Boolean = false,
     val lastActiveAt: Long = System.currentTimeMillis(),
     val walletBalance: Double = 0.0,
+    val monetizationBalance: Double = 0.0,
     val createdAt: Long = System.currentTimeMillis(),
     val lastLoginAt: Long = System.currentTimeMillis()
 ) {
@@ -142,6 +143,7 @@ data class UserProfile(
             "isOnline" to isOnline,
             "lastActiveAt" to lastActiveAt,
             "walletBalance" to walletBalance,
+            "monetizationBalance" to monetizationBalance,
             "createdAt" to createdAt,
             "lastLoginAt" to lastLoginAt
         )

@@ -7,7 +7,7 @@ import java.util.UUID
 data class MarketplaceItem(
     val id: String = UUID.randomUUID().toString(),
     val title: String = "",
-    val price: Double = 0.0, // Strictly in BDT (৳)
+    val price: Double = 0.0, // Strictly in BDT
     val category: String = "All", // e.g. "Electronics", "Mobiles", "Vehicles", "Property", "Apparel", "Home Goods", "Hobbies"
     val condition: String = "Brand New", // "Brand New", "Used - Like New", "Used - Good", "Used - Fair"
     val location: String = "Dhaka, Bangladesh",

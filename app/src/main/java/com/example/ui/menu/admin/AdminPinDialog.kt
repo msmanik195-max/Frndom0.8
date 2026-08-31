@@ -76,7 +76,7 @@ fun AdminPinEntryDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "এডমিন সিকিউরিটি পিন",
+                    text = "Admin Security PIN",
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
                     color = Color(0xFF050505),
@@ -84,7 +84,7 @@ fun AdminPinEntryDialog(
                 )
 
                 Text(
-                    text = "এডমিন প্যানেলে প্রবেশের জন্য আপনার সিকিউরিটি পিন দিন",
+                    text = "Enter your security PIN to access the Admin Panel",
                     fontSize = 13.sp,
                     color = Color(0xFF65676B),
                     textAlign = TextAlign.Center,
@@ -109,7 +109,7 @@ fun AdminPinEntryDialog(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "ডিফল্ট পিন: 1234",
+                            text = "Default PIN: 1234",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF2E7D32)
@@ -126,7 +126,7 @@ fun AdminPinEntryDialog(
                             isError = false
                         }
                     },
-                    label = { Text("পিন (PIN)") },
+                    label = { Text("Security PIN") },
                     placeholder = { Text("1234") },
                     singleLine = true,
                     isError = isError,
@@ -140,7 +140,7 @@ fun AdminPinEntryDialog(
                                 onSuccess()
                             } else {
                                 isError = true
-                                errorMessage = "ভুল পিন! সঠিক পিন দিয়ে আবার চেষ্টা করুন।"
+                                errorMessage = "Incorrect PIN! Please try again."
                             }
                         }
                     ),
@@ -193,7 +193,7 @@ fun AdminPinEntryDialog(
                             .height(46.dp)
                             .testTag("admin_pin_cancel_btn")
                     ) {
-                        Text("বাতিল", color = Color(0xFF65676B), fontWeight = FontWeight.SemiBold)
+                        Text("Cancel", color = Color(0xFF65676B), fontWeight = FontWeight.SemiBold)
                     }
 
                     Button(
@@ -202,7 +202,7 @@ fun AdminPinEntryDialog(
                                 onSuccess()
                             } else {
                                 isError = true
-                                errorMessage = "ভুল পিন! সঠিক পিন দিয়ে আবার চেষ্টা করুন।"
+                                errorMessage = "Incorrect PIN! Please try again."
                             }
                         },
                         shape = RoundedCornerShape(10.dp),
@@ -212,7 +212,7 @@ fun AdminPinEntryDialog(
                             .height(46.dp)
                             .testTag("admin_pin_submit_btn")
                     ) {
-                        Text("প্রবেশ করুন", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Enter", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
@@ -275,7 +275,7 @@ fun AdminChangePinDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "এডমিন সিকিউরিটি পিন পরিবর্তন",
+                    text = "Change Admin Security PIN",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = Color(0xFF050505),
@@ -283,7 +283,7 @@ fun AdminChangePinDialog(
                 )
 
                 Text(
-                    text = "নতুন পিন Firebase রিয়েলটাইম ডাটাবেজ (admin_pin) এ সিঙ্ক হবে",
+                    text = "New PIN will sync with Firebase Realtime Database (admin_pin)",
                     fontSize = 12.sp,
                     color = Color(0xFF65676B),
                     textAlign = TextAlign.Center,
@@ -297,7 +297,7 @@ fun AdminChangePinDialog(
                         currentPin = it
                         errorMessage = ""
                     },
-                    label = { Text("বর্তমান পিন (Current PIN)") },
+                    label = { Text("Current PIN") },
                     placeholder = { Text("1234") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
@@ -326,8 +326,8 @@ fun AdminChangePinDialog(
                         newPin = it
                         errorMessage = ""
                     },
-                    label = { Text("নতুন পিন (New PIN)") },
-                    placeholder = { Text("কমপক্ষে ৪ ডিজিট") },
+                    label = { Text("New PIN") },
+                    placeholder = { Text("At least 4 digits") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     visualTransformation = if (isNewVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -355,8 +355,8 @@ fun AdminChangePinDialog(
                         confirmPin = it
                         errorMessage = ""
                     },
-                    label = { Text("নতুন পিন নিশ্চিত করুন (Confirm PIN)") },
-                    placeholder = { Text("নতুন পিন পুনরায় লিখুন") },
+                    label = { Text("Confirm New PIN") },
+                    placeholder = { Text("Re-enter new PIN") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     visualTransformation = PasswordVisualTransformation(),
@@ -388,7 +388,7 @@ fun AdminChangePinDialog(
                             .fillMaxWidth()
                     ) {
                         Text(
-                            text = "✓ পিন সফলভাবে পরিবর্তন ও Firebase-এ সিঙ্ক হয়েছে!",
+                            text = "✓ PIN successfully updated and synced to Firebase!",
                             color = Color(0xFF2E7D32),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -411,21 +411,21 @@ fun AdminChangePinDialog(
                             .weight(1f)
                             .height(46.dp)
                     ) {
-                        Text("বাতিল", color = Color(0xFF65676B), fontWeight = FontWeight.SemiBold)
+                        Text("Cancel", color = Color(0xFF65676B), fontWeight = FontWeight.SemiBold)
                     }
 
                     Button(
                         onClick = {
                             if (!onVerifyCurrentPin(currentPin)) {
-                                errorMessage = "বর্তমান পিন সঠিক নয়!"
+                                errorMessage = "Current PIN is incorrect!"
                                 return@Button
                             }
                             if (newPin.trim().length < 4) {
-                                errorMessage = "নতুন পিন কমপক্ষে ৪ সংখ্যার হতে হবে।"
+                                errorMessage = "New PIN must be at least 4 digits."
                                 return@Button
                             }
                             if (newPin.trim() != confirmPin.trim()) {
-                                errorMessage = "নতুন পিন দুটি মেলেনি!"
+                                errorMessage = "New PINs do not match!"
                                 return@Button
                             }
 
@@ -439,7 +439,7 @@ fun AdminChangePinDialog(
                             .height(46.dp)
                             .testTag("admin_change_pin_save_btn")
                     ) {
-                        Text("সংরক্ষণ", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Save PIN", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }

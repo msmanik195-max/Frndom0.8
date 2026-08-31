@@ -453,7 +453,7 @@ fun AdminUserManagementView(
                     OutlinedTextField(
                         value = editBalance,
                         onValueChange = { editBalance = it },
-                        label = { Text("Wallet Balance (৳ BDT)") },
+                        label = { Text("Wallet Balance (BDT)") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
@@ -925,7 +925,7 @@ fun AdminUserCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "৳ ${String.format(Locale.US, "%.0f", user.walletBalance)}",
+                            text = "BDT ${String.format(Locale.US, "%.0f", user.walletBalance)}",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF1976D2)

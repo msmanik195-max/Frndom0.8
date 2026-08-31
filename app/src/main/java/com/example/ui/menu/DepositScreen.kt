@@ -180,7 +180,7 @@ fun DepositScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "৳ ${String.format(Locale.US, "%.2f", balance)}",
+                                    text = "BDT ${String.format(Locale.US, "%.2f", balance)}",
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -233,7 +233,7 @@ fun DepositScreen(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Your deposit request for ৳${String.format(Locale.US, "%.2f", lastSubmittedAmount)} has been sent to Admin.\nTrxID: $lastTrxId",
+                                text = "Your deposit request for BDT ${String.format(Locale.US, "%.2f", lastSubmittedAmount)} has been sent to Admin.\nTrxID: $lastTrxId",
                                 fontSize = 13.sp,
                                 color = Color(0xFF050505),
                                 textAlign = TextAlign.Center,
@@ -295,7 +295,7 @@ fun DepositScreen(
                                             .clickable { selectedAmount = amt }
                                     ) {
                                         Text(
-                                            text = "৳$amt",
+                                            text = "BDT $amt",
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = if (isSelected) Color.White else Color(0xFF050505),
@@ -322,7 +322,7 @@ fun DepositScreen(
                                             .clickable { selectedAmount = amt }
                                     ) {
                                         Text(
-                                            text = "৳$amt",
+                                            text = "BDT $amt",
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = if (isSelected) Color.White else Color(0xFF050505),
@@ -339,7 +339,7 @@ fun DepositScreen(
                                 value = selectedAmount,
                                 onValueChange = { selectedAmount = it.filter { c -> c.isDigit() || c == '.' } },
                                 label = { Text("Custom Amount") },
-                                prefix = { Text("৳ ", fontWeight = FontWeight.Bold) },
+                                prefix = { Text("BDT ", fontWeight = FontWeight.Bold) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
@@ -666,7 +666,7 @@ fun DepositScreen(
                             Text("Submitting Request...", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         } else {
                             Text(
-                                text = "Verify & Submit Deposit (৳$selectedAmount)",
+                                text = "Verify & Submit Deposit (BDT $selectedAmount)",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White

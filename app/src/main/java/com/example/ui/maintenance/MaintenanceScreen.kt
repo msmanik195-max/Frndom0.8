@@ -432,7 +432,7 @@ fun MaintenanceConfigDialog(
                 // Description Input
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "Maintenance Description (বিস্তারিত ডেসক্রিপশন)",
+                        text = "Maintenance Description",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF1C1E21)
@@ -444,7 +444,7 @@ fun MaintenanceConfigDialog(
                             errorText = null
                         },
                         placeholder = {
-                            Text("কিসের জন্য মেইনটেনেন্স বিস্তারিত লিখুন... যেমন: সার্ভার আপগ্রেড বা নতুন ফিচার আপডেটের কাজ চলছে।")
+                            Text("Provide detailed maintenance info... e.g. Server upgrade or new feature updates in progress.")
                         },
                         minLines = 4,
                         maxLines = 6,
@@ -484,7 +484,7 @@ fun MaintenanceConfigDialog(
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = "Save এ ক্লিক করার সাথে সাথে পুরো অ্যাপ্লিকেশন সাধারণ ব্যবহারকারীদের জন্য বন্ধ থাকবে এবং এই মেন্টেনেন্স নোটিশ প্রদর্শিত হবে।",
+                            text = "Clicking Save will immediately enable maintenance mode for all general users and display this notice.",
                             fontSize = 12.sp,
                             color = Color(0xFF5D4037),
                             lineHeight = 16.sp

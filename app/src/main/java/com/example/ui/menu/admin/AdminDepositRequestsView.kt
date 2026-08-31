@@ -306,12 +306,12 @@ fun AdminDepositRequestsView(
                     )
                 },
                 title = {
-                    Text("Approve Deposit ৳${item.amount.toInt()}?", fontWeight = FontWeight.Bold)
+                    Text("Approve Deposit BDT ${item.amount.toInt()}?", fontWeight = FontWeight.Bold)
                 },
                 text = {
                     Column {
                         Text(
-                            text = "Are you sure you want to approve this deposit request? ৳${item.amount.toInt()} will be credited immediately to the user's wallet.",
+                            text = "Are you sure you want to approve this deposit request? BDT ${item.amount.toInt()} will be credited immediately to the user's wallet.",
                             fontSize = 14.sp,
                             color = Color(0xFF050505)
                         )
@@ -367,7 +367,7 @@ fun AdminDepositRequestsView(
                 text = {
                     Column {
                         Text(
-                            text = "Reject deposit request for ৳${item.amount.toInt()} from ${item.userName} (${item.methodName} - ${item.transactionId}). No funds will be added to the user's wallet.",
+                            text = "Reject deposit request for BDT ${item.amount.toInt()} from ${item.userName} (${item.methodName} - ${item.transactionId}). No funds will be added to the user's wallet.",
                             fontSize = 14.sp,
                             color = Color(0xFF050505)
                         )
@@ -486,7 +486,7 @@ private fun DepositRequestCard(
                         color = Color(0xFF65676B)
                     )
                     Text(
-                        text = "৳ ${String.format(Locale.US, "%.2f", item.amount)} BDT",
+                        text = "BDT ${String.format(Locale.US, "%.2f", item.amount)}",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF008937)

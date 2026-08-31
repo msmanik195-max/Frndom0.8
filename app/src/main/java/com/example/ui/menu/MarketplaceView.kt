@@ -384,7 +384,7 @@ fun MarketplaceView(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Tap 'Sell' to list your items in BDT (৳) for other users to buy!",
+                            text = "Tap 'Sell' to list your items in BDT for other users to buy!",
                             fontSize = 13.sp,
                             color = Color(0xFF65676B),
                             modifier = Modifier.padding(horizontal = 24.dp)
@@ -395,7 +395,7 @@ fun MarketplaceView(
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2)),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Post an Item for Sale (৳)", fontWeight = FontWeight.Bold)
+                            Text("Post an Item for Sale", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -482,7 +482,7 @@ private fun MarketplaceProductCard(
     onToggleSave: () -> Unit = {},
     onClick: () -> Unit
 ) {
-    val formattedPrice = "৳ " + NumberFormat.getNumberInstance(Locale.US).format(item.price.toLong())
+    val formattedPrice = "BDT " + NumberFormat.getNumberInstance(Locale.US).format(item.price.toLong())
 
     Card(
         modifier = Modifier
@@ -650,7 +650,7 @@ fun ProductDetailBottomSheet(
     var prefilledMessage by remember { mutableStateOf("Hi ${item.sellerName}, is this item still available?") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
-    val formattedPrice = "৳ " + NumberFormat.getNumberInstance(Locale.US).format(item.price.toLong())
+    val formattedPrice = "BDT " + NumberFormat.getNumberInstance(Locale.US).format(item.price.toLong())
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
     val formattedDate = dateFormat.format(Date(item.createdAt))
 
@@ -757,7 +757,7 @@ fun ProductDetailBottomSheet(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Price in BDT (৳)
+                // Price in BDT
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = formattedPrice,
@@ -771,7 +771,7 @@ fun ProductDetailBottomSheet(
                         color = Color(0xFFE8F1FD)
                     ) {
                         Text(
-                            text = "৳ BDT",
+                            text = "BDT",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1877F2),
@@ -1189,15 +1189,15 @@ private fun SellListingBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Price in ৳ BDT
+            // Price in BDT
             OutlinedTextField(
                 value = priceText,
                 onValueChange = {
                     priceText = it.filter { ch -> ch.isDigit() || ch == '.' }
                     errorMessage = null
                 },
-                label = { Text("Price in Taka (৳ BDT)") },
-                prefix = { Text("৳ ", fontWeight = FontWeight.Bold, color = Color(0xFF0866FF)) },
+                label = { Text("Price in BDT") },
+                prefix = { Text("BDT ", fontWeight = FontWeight.Bold, color = Color(0xFF0866FF)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
@@ -1309,7 +1309,7 @@ private fun SellListingBottomSheet(
                     val price = priceText.toDoubleOrNull() ?: 0.0
                     when {
                         title.isBlank() -> errorMessage = "Please enter an item title"
-                        price <= 0.0 -> errorMessage = "Please enter a valid price in Taka (৳)"
+                        price <= 0.0 -> errorMessage = "Please enter a valid price in BDT"
                         location.isBlank() -> errorMessage = "Please enter a location"
                         else -> {
                             val newItem = MarketplaceItem(
@@ -1338,7 +1338,7 @@ private fun SellListingBottomSheet(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2))
             ) {
                 Text(
-                    text = "Publish Listing (৳ BDT)",
+                    text = "Publish Listing (BDT)",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White

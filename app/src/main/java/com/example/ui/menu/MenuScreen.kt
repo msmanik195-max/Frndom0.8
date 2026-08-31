@@ -24,10 +24,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AutoGraph
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
@@ -43,9 +46,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,12 +70,14 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.model.PostItem
 import com.example.data.model.UserProfile
+import com.example.data.repository.AppSettingsRepository
 import com.example.data.repository.GroupPageRepository
 import com.example.data.repository.MarketplaceRepository
 import com.example.data.repository.PostRepository
 import com.example.data.repository.UserRepository
 import com.example.data.repository.WatchHistoryRepository
 import com.example.data.service.MediaUploadService
+import com.example.ui.advertisement.AdvertisementScreen
 import com.example.ui.menu.admin.AdminDashboardView
 import com.example.ui.menu.admin.AdminDepositRequestsView
 import com.example.ui.menu.admin.AdminMonetizationRequestsView
@@ -98,7 +106,8 @@ enum class MenuSubScreen {
     ADMIN_WITHDRAWS,
     ADMIN_MONETIZATION,
     ADMIN_VERIFICATIONS,
-    ADMIN_PAYMENT_METHODS
+    ADMIN_PAYMENT_METHODS,
+    ADVERTISEMENT
 }
 
 @Composable
@@ -295,6 +304,14 @@ fun MenuScreen(
                 modifier = modifier
             )
         }
+        MenuSubScreen.ADVERTISEMENT -> {
+            AdvertisementScreen(
+                currentUser = userProfile,
+                onBack = { currentSubScreen = MenuSubScreen.MAIN },
+                onNavigateToDeposit = { currentSubScreen = MenuSubScreen.DEPOSIT },
+                modifier = modifier
+            )
+        }
         MenuSubScreen.MAIN -> {
             val displayName = when {
                 !userProfile?.fullName.isNullOrBlank() -> userProfile?.fullName ?: "User"
@@ -302,11 +319,13 @@ fun MenuScreen(
                 else -> "User"
             }
             val initial = displayName.firstOrNull()?.uppercase() ?: "U"
+            val appSettingsRepo = remember { AppSettingsRepository.getInstance(context) }
+            val isDarkMode by appSettingsRepo.isDarkMode.collectAsState()
 
             Box(
                 modifier = modifier
                     .fillMaxSize()
-                    .background(Color(0xFFF0F2F5))
+                    .background(if (isDarkMode) Color(0xFF18191A) else Color(0xFFF0F2F5))
                     .testTag("menu_screen")
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -314,7 +333,7 @@ fun MenuScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color.White)
+                            .background(if (isDarkMode) Color(0xFF242526) else Color.White)
                             .padding(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -323,12 +342,12 @@ fun MenuScreen(
                             text = "Menu",
                             fontSize = 24.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF050505)
+                            color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 shape = CircleShape,
-                                color = Color(0xFFE4E6EB),
+                                color = if (isDarkMode) Color(0xFF3A3B3C) else Color(0xFFE4E6EB),
                                 modifier = Modifier
                                     .size(38.dp)
                                     .clickable(onClick = onSearchClick)
@@ -337,7 +356,7 @@ fun MenuScreen(
                                     Icon(
                                         imageVector = Icons.Default.Search,
                                         contentDescription = "Search",
-                                        tint = Color(0xFF050505),
+                                        tint = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505),
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -345,7 +364,7 @@ fun MenuScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Surface(
                                 shape = CircleShape,
-                                color = Color(0xFFE4E6EB),
+                                color = if (isDarkMode) Color(0xFF3A3B3C) else Color(0xFFE4E6EB),
                                 modifier = Modifier
                                     .size(38.dp)
                                     .clickable { currentSubScreen = MenuSubScreen.SETTINGS }
@@ -354,7 +373,7 @@ fun MenuScreen(
                                     Icon(
                                         imageVector = Icons.Default.Settings,
                                         contentDescription = "Settings",
-                                        tint = Color(0xFF050505),
+                                        tint = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505),
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -362,7 +381,10 @@ fun MenuScreen(
                         }
                     }
 
-                    Divider(thickness = 0.5.dp, color = Color(0xFFE4E6EB))
+                    Divider(
+                        thickness = 0.5.dp,
+                        color = if (isDarkMode) Color(0xFF3E4042) else Color(0xFFE4E6EB)
+                    )
 
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
@@ -380,7 +402,9 @@ fun MenuScreen(
                                     .clickable(onClick = onProfileClick)
                                     .testTag("menu_profile_card"),
                                 shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isDarkMode) Color(0xFF242526) else Color.White
+                                ),
                                 elevation = CardDefaults.cardElevation(1.dp)
                             ) {
                                 Row(
@@ -428,7 +452,7 @@ fun MenuScreen(
                                                     text = displayName,
                                                     fontSize = 17.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = Color(0xFF050505)
+                                                    color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
                                                 )
                                                 if (userProfile?.isVerificationActive() == true) {
                                                     Spacer(modifier = Modifier.width(4.dp))
@@ -438,7 +462,7 @@ fun MenuScreen(
                                             Text(
                                                 text = "See your profile",
                                                 fontSize = 13.sp,
-                                                color = Color(0xFF65676B)
+                                                color = if (isDarkMode) Color(0xFFB0B3B8) else Color(0xFF65676B)
                                             )
                                         }
                                     }
@@ -446,7 +470,7 @@ fun MenuScreen(
                                     // Switch Account Button
                                     Surface(
                                         shape = RoundedCornerShape(20.dp),
-                                        color = Color(0xFFE4E6EB),
+                                        color = if (isDarkMode) Color(0xFF3A3B3C) else Color(0xFFE4E6EB),
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(20.dp))
                                             .clickable { showAccountSwitcher = true }
@@ -458,7 +482,7 @@ fun MenuScreen(
                                             Icon(
                                                 imageVector = Icons.Default.SwapHoriz,
                                                 contentDescription = "Switch Account",
-                                                tint = Color(0xFF050505),
+                                                tint = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505),
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
@@ -466,7 +490,7 @@ fun MenuScreen(
                                                 text = "Switch",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF050505)
+                                                color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
                                             )
                                         }
                                     }
@@ -480,7 +504,7 @@ fun MenuScreen(
                                 text = "All Shortcuts",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF65676B),
+                                color = if (isDarkMode) Color(0xFFB0B3B8) else Color(0xFF65676B),
                                 modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
                             )
                         }
@@ -515,7 +539,7 @@ fun MenuScreen(
                         item {
                             FacebookMenuCard(
                                 title = "Wallet",
-                                subtitle = "Earnings & stars (৳ BDT)",
+                                subtitle = "Earning & Tk",
                                 icon = Icons.Default.AccountBalanceWallet,
                                 iconColor = Color(0xFF2E7D32),
                                 iconBgColor = Color(0xFFE8F5E9),
@@ -576,10 +600,10 @@ fun MenuScreen(
                             )
                         }
 
-                        // 7. Verification Badge
+                        // 7. Verified
                         item {
                             FacebookMenuCard(
-                                title = "Verification Badge",
+                                title = "Verified",
                                 subtitle = "Get Green Badge & trust",
                                 icon = Icons.Default.VerifiedUser,
                                 iconColor = Color(0xFF00C853),
@@ -602,13 +626,28 @@ fun MenuScreen(
                             )
                         }
 
+                        // 9. Advertisement
+                        item {
+                            FacebookMenuCard(
+                                title = "Advertisement",
+                                subtitle = "Run & manage ads",
+                                icon = Icons.Default.Campaign,
+                                iconColor = Color(0xFF1877F2),
+                                iconBgColor = Color(0xFFE7F3FF),
+                                onClick = { currentSubScreen = MenuSubScreen.ADVERTISEMENT },
+                                tag = "menu_card_advertisement"
+                            )
+                        }
+
                         // Log Out Card (Span 2)
                         item(span = { GridItemSpan(2) }) {
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Button(
                                 onClick = onLogoutClick,
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE4E6EB)),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isDarkMode) Color(0xFF3A3B3C) else Color(0xFFE4E6EB)
+                                ),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp)
@@ -617,17 +656,85 @@ fun MenuScreen(
                                 Icon(
                                     imageVector = Icons.Default.ExitToApp,
                                     contentDescription = "Log Out",
-                                    tint = Color(0xFF050505),
+                                    tint = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505),
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "Log Out",
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF050505),
+                                    color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505),
                                     fontSize = 15.sp
                                 )
                             }
+                        }
+
+                        // Dark / Light Mode Toggle Card (Span 2) - At the VERY BOTTOM
+                        item(span = { GridItemSpan(2) }) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { appSettingsRepo.setDarkMode(!isDarkMode) }
+                                    .testTag("menu_dark_mode_toggle"),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isDarkMode) Color(0xFF242526) else Color.White
+                                ),
+                                elevation = CardDefaults.cardElevation(1.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = if (isDarkMode) Color(0xFF3A3B3C) else Color(0xFFF0F2F5),
+                                            modifier = Modifier.size(42.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = if (isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
+                                                    contentDescription = "Dark / Light Mode",
+                                                    tint = if (isDarkMode) Color(0xFFFFD54F) else Color(0xFFF57C00),
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(14.dp))
+                                        Column {
+                                            Text(
+                                                text = if (isDarkMode) "Dark Mode" else "Light Mode",
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
+                                            )
+                                            Text(
+                                                text = if (isDarkMode) "Currently in Dark theme" else "Currently in Light theme",
+                                                fontSize = 12.sp,
+                                                color = if (isDarkMode) Color(0xFFB0B3B8) else Color(0xFF65676B)
+                                            )
+                                        }
+                                    }
+                                    Switch(
+                                        checked = isDarkMode,
+                                        onCheckedChange = { appSettingsRepo.setDarkMode(it) },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color.White,
+                                            checkedTrackColor = Color(0xFF0866FF)
+                                        )
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(24.dp))
                         }
                     }
                 }
@@ -676,6 +783,10 @@ private fun FacebookMenuCard(
     onClick: () -> Unit,
     tag: String
 ) {
+    val context = LocalContext.current
+    val appSettingsRepo = remember { AppSettingsRepository.getInstance(context) }
+    val isDarkMode by appSettingsRepo.isDarkMode.collectAsState()
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -683,7 +794,9 @@ private fun FacebookMenuCard(
             .clickable(onClick = onClick)
             .testTag(tag),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDarkMode) Color(0xFF242526) else Color.White
+        ),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Column(
@@ -693,7 +806,7 @@ private fun FacebookMenuCard(
         ) {
             Surface(
                 shape = CircleShape,
-                color = iconBgColor,
+                color = if (isDarkMode) iconColor.copy(alpha = 0.2f) else iconBgColor,
                 modifier = Modifier.size(42.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -712,7 +825,7 @@ private fun FacebookMenuCard(
                 text = title,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF050505)
+                color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
             )
 
             Spacer(modifier = Modifier.height(2.dp))
@@ -720,7 +833,7 @@ private fun FacebookMenuCard(
             Text(
                 text = subtitle,
                 fontSize = 12.sp,
-                color = Color(0xFF65676B),
+                color = if (isDarkMode) Color(0xFFB0B3B8) else Color(0xFF65676B),
                 lineHeight = 16.sp
             )
         }

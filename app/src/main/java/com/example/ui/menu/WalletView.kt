@@ -211,7 +211,7 @@ fun WalletView(
                                 .padding(22.dp)
                         ) {
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                // Top row: "Available Balance" + "৳ BDT" Pill
+                                // Top row: "Available Balance" + "BDT" Pill
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -229,7 +229,7 @@ fun WalletView(
                                         color = Color.White.copy(alpha = 0.22f)
                                     ) {
                                         Text(
-                                            text = "৳ BDT",
+                                            text = "BDT",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White,
@@ -240,9 +240,9 @@ fun WalletView(
 
                                 Spacer(modifier = Modifier.height(14.dp))
 
-                                // Big Balance: ৳ 0.00
+                                // Big Balance: BDT 0.00
                                 Text(
-                                    text = "৳ ${String.format(Locale.US, "%.2f", balance)}",
+                                    text = "BDT ${String.format(Locale.US, "%.2f", balance)}",
                                     fontSize = 36.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
@@ -275,7 +275,7 @@ fun WalletView(
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            text = "৳ ${String.format(Locale.US, "%.2f", totalIn)}",
+                                            text = "BDT ${String.format(Locale.US, "%.2f", totalIn)}",
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White
@@ -292,7 +292,7 @@ fun WalletView(
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            text = "৳ ${String.format(Locale.US, "%.2f", totalOut)}",
+                                            text = "BDT ${String.format(Locale.US, "%.2f", totalOut)}",
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White
@@ -636,13 +636,13 @@ private fun WalletTransactionCard(
                     else -> Color(0xFFD32F2F)
                 }
                 Text(
-                    text = "${if (tx.isPositive) "+" else "-"}৳${String.format(Locale.US, "%.2f", tx.amount)}",
+                    text = "${if (tx.isPositive) "+" else "-"}BDT ${String.format(Locale.US, "%.2f", tx.amount)}",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = amountColor
                 )
                 Text(
-                    text = if (isPending) "Processing" else "Bal: ৳${String.format(Locale.US, "%.2f", tx.balanceAfter)}",
+                    text = if (isPending) "Processing" else "Bal: BDT ${String.format(Locale.US, "%.2f", tx.balanceAfter)}",
                     fontSize = 11.sp,
                     color = if (isPending) Color(0xFFE65100) else Color(0xFF8A8D91)
                 )
@@ -692,7 +692,7 @@ private fun RechargeBottomSheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "Select Amount (৳ BDT)",
+                text = "Select Amount (BDT)",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF65676B)
@@ -715,7 +715,7 @@ private fun RechargeBottomSheet(
                             .clickable { selectedAmount = amt }
                     ) {
                         Text(
-                            text = "৳$amt",
+                            text = "BDT $amt",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isSelected) Color.White else Color(0xFF050505),
@@ -731,8 +731,8 @@ private fun RechargeBottomSheet(
             OutlinedTextField(
                 value = selectedAmount,
                 onValueChange = { selectedAmount = it.filter { char -> char.isDigit() || char == '.' } },
-                label = { Text("Custom Amount (৳)") },
-                prefix = { Text("৳ ", fontWeight = FontWeight.Bold) },
+                label = { Text("Custom Amount") },
+                prefix = { Text("BDT ", fontWeight = FontWeight.Bold) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -817,7 +817,7 @@ private fun RechargeBottomSheet(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0B5ED7))
             ) {
                 Text(
-                    text = "Proceed to Recharge ৳$selectedAmount",
+                    text = "Proceed to Recharge BDT $selectedAmount",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -872,7 +872,7 @@ private fun WithdrawBottomSheet(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Available Balance: ৳${String.format(Locale.US, "%.2f", currentBalance)}",
+                text = "Available Balance: BDT ${String.format(Locale.US, "%.2f", currentBalance)}",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF00A86B)
@@ -886,8 +886,8 @@ private fun WithdrawBottomSheet(
                     amountText = it.filter { char -> char.isDigit() || char == '.' }
                     errorMessage = null
                 },
-                label = { Text("Withdraw Amount (৳)") },
-                prefix = { Text("৳ ", fontWeight = FontWeight.Bold) },
+                label = { Text("Withdraw Amount") },
+                prefix = { Text("BDT ", fontWeight = FontWeight.Bold) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),

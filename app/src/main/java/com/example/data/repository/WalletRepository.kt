@@ -314,6 +314,32 @@ class WalletRepository(context: Context) {
         return true
     }
 
+    fun refund(amount: Double, title: String, subtitle: String): Boolean {
+        if (amount <= 0) return false
+        val newBal = _balanceFlow.value + amount
+        _balanceFlow.value = newBal
+
+        prefs.edit()
+            .putFloat(KEY_BALANCE, newBal.toFloat())
+            .apply()
+
+        val tx = WalletTxItem(
+            id = UUID.randomUUID().toString(),
+            title = title,
+            subtitle = subtitle,
+            date = getFormattedDate(System.currentTimeMillis()),
+            amount = amount,
+            isPositive = true,
+            balanceAfter = newBal,
+            status = "COMPLETED"
+        )
+
+        val updated = listOf(tx) + _transactionsFlow.value
+        _transactionsFlow.value = updated
+        saveTransactions(updated)
+        return true
+    }
+
     private fun getFormattedDate(timeMs: Long): String {
         return SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()).format(Date(timeMs))
     }

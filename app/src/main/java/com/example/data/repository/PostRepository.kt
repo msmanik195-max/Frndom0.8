@@ -398,6 +398,10 @@ class PostRepository(private val context: Context) {
         val index = current.indexOfFirst { it.id == postId }
         if (index >= 0) {
             val post = current[index]
+            if (post.authorId == viewerId) {
+                // Author viewing their own post - DO NOT increment
+                return
+            }
             if (post.viewedByMap.containsKey(viewerId)) {
                 // Already viewed by this user or page account - DO NOT increment
                 return

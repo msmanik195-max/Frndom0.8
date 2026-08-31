@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.AutoGraph
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
@@ -80,6 +81,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.UserProfile
 import com.example.data.repository.AdminRequestRepository
 import com.example.data.repository.PostRepository
+import com.example.data.repository.UserRepository
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -91,9 +93,11 @@ fun DashboardView(
 ) {
     val context = LocalContext.current
     val postRepo = remember { PostRepository(context) }
+    val userRepo = remember { UserRepository(context) }
     val adminRepo = remember { AdminRequestRepository.getInstance(context) }
     val allPosts by postRepo.postsFlow.collectAsState()
     val monetizationRequests by adminRepo.monetizationRequestsFlow.collectAsState()
+    val monetizationSettings by adminRepo.monetizationSettingsFlow.collectAsState()
 
     val sharedPrefs = remember { context.getSharedPreferences("frndom_creator_fund_prefs", Context.MODE_PRIVATE) }
     val currentUserId = userProfile?.uid ?: ""
@@ -108,6 +112,8 @@ fun DashboardView(
         )
     }
     var showSuccessDialog by remember { mutableStateOf(false) }
+    var transferMessage by remember { mutableStateOf<String?>(null) }
+    var showTransferConfirmDialog by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
     val displayName = userProfile?.fullName?.ifBlank { "${userProfile.firstName} ${userProfile.lastName}".trim() } ?: "Creator"
@@ -146,14 +152,10 @@ fun DashboardView(
         totalLikes + totalComments + totalContentShares
     }
 
-    val totalReach = remember(userPosts, totalEngagement) {
-        if (userPosts.isEmpty()) {
-            0
-        } else {
-            userPosts.sumOf { post ->
-                val interactions = maxOf(post.likesCount, post.reactionsMap.size) * 4 + post.commentsCount * 3 + post.sharesCount * 6
-                maxOf(interactions + 12, 1)
-            }
+    val totalReach = remember(userPosts, currentUserId) {
+        userPosts.sumOf { post ->
+            // Count actual unique views from other users, excluding the author
+            post.viewedByMap.count { it.key != currentUserId }
         }
     }
 
@@ -173,11 +175,11 @@ fun DashboardView(
     }
 
     // Creator Fund Criteria checks
-    val hasMetViews = totalReach >= 500
-    val hasMetFollowers = netFollowers >= 100
-    val hasMetPosts = (totalPostsCount + totalReelsCount) >= 10 || totalPostsCount >= 10
-    val hasMetReels = totalReelsCount >= 5
-    val hasMetAccountAge = accountAgeDays >= 7
+    val hasMetViews = totalReach >= monetizationSettings.reqTotalViews
+    val hasMetFollowers = netFollowers >= monetizationSettings.reqTotalFollowers
+    val hasMetPosts = (totalPostsCount + totalReelsCount) >= monetizationSettings.reqTotalPosts || totalPostsCount >= monetizationSettings.reqTotalPosts
+    val hasMetReels = totalReelsCount >= monetizationSettings.reqTotalReels
+    val hasMetAccountAge = accountAgeDays >= monetizationSettings.reqAccountAgeDays
 
     val completedCriteriaCount = listOf(
         hasMetViews,
@@ -368,8 +370,9 @@ fun DashboardView(
                     )
                 }
 
-                // CREATOR FUND MONETIZATION SECTION
-                Row(
+                if (userProfile?.isMonetized != true) {
+                    // CREATOR FUND MONETIZATION SECTION
+                    Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -463,11 +466,11 @@ fun DashboardView(
                             modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
                         )
 
-                        // 1. 500 Views Criterion
+                        // 1. Views Criterion
                         CriteriaItem(
-                            title = "500 Views (Total Reach)",
+                            title = "${monetizationSettings.reqTotalViews} Views (Total Reach)",
                             currentVal = totalReach,
-                            targetVal = 500,
+                            targetVal = monetizationSettings.reqTotalViews,
                             unit = "views",
                             isMet = hasMetViews,
                             icon = Icons.Default.RemoveRedEye,
@@ -476,11 +479,11 @@ fun DashboardView(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // 2. 100 Followers Criterion
+                        // 2. Followers Criterion
                         CriteriaItem(
-                            title = "100 Followers",
+                            title = "${monetizationSettings.reqTotalFollowers} Followers",
                             currentVal = netFollowers,
-                            targetVal = 100,
+                            targetVal = monetizationSettings.reqTotalFollowers,
                             unit = "followers",
                             isMet = hasMetFollowers,
                             icon = Icons.Default.People,
@@ -489,11 +492,11 @@ fun DashboardView(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // 3. 10+ Posts Uploaded
+                        // 3. Posts Uploaded
                         CriteriaItem(
-                            title = "10+ Posts Uploaded",
+                            title = "${monetizationSettings.reqTotalPosts}+ Posts Uploaded",
                             currentVal = totalPostsCount,
-                            targetVal = 10,
+                            targetVal = monetizationSettings.reqTotalPosts,
                             unit = "posts",
                             isMet = hasMetPosts,
                             icon = Icons.Default.PostAdd,
@@ -502,11 +505,11 @@ fun DashboardView(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // 4. 5+ Reels Uploaded
+                        // 4. Reels Uploaded
                         CriteriaItem(
-                            title = "5+ Reels Uploaded",
+                            title = "${monetizationSettings.reqTotalReels}+ Reels Uploaded",
                             currentVal = totalReelsCount,
-                            targetVal = 5,
+                            targetVal = monetizationSettings.reqTotalReels,
                             unit = "reels",
                             isMet = hasMetReels,
                             icon = Icons.Default.Movie,
@@ -515,11 +518,11 @@ fun DashboardView(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // 5. Account Age 7+ Days
+                        // 5. Account Age
                         CriteriaItem(
-                            title = "7+ Days Account Age",
+                            title = "${monetizationSettings.reqAccountAgeDays}+ Days Account Age",
                             currentVal = accountAgeDays,
-                            targetVal = 7,
+                            targetVal = monetizationSettings.reqAccountAgeDays,
                             unit = "days",
                             isMet = hasMetAccountAge,
                             icon = Icons.Default.DateRange,
@@ -673,9 +676,171 @@ fun DashboardView(
                         }
                     }
                 }
+                } else {
+                    // MONETIZATION WALLET SECTION
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Monetization Wallet",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF050505),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Current Earnings", color = Color.Gray, fontSize = 14.sp)
+                            Text(
+                                text = "BDT ${String.format(Locale.US, "%.2f", userProfile.monetizationBalance)}",
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF00C853)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Button(
+                                onClick = { 
+                                    if (userProfile.monetizationBalance >= monetizationSettings.minTransferAmount) {
+                                        showTransferConfirmDialog = true
+                                    } else {
+                                        transferMessage = "Minimum transfer amount is BDT ${monetizationSettings.minTransferAmount}"
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2))
+                            ) {
+                                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Transfer to Main Wallet")
+                            }
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
+
+                // User Posts List with Monetization stats
+                Text(
+                    text = "Recent Posts Performance",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF050505),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                if (userPosts.isEmpty()) {
+                    Text(
+                        text = "You haven't posted anything yet.",
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                } else {
+                    userPosts.sortedByDescending { it.createdAt }.forEach { post ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(1.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = post.content.take(50) + if (post.content.length > 50) "..." else "",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                val actualViews = post.viewedByMap.count { it.key != currentUserId }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.RemoveRedEye, contentDescription = "Views", modifier = Modifier.size(14.dp), tint = Color.Gray)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(actualViews.toString(), fontSize = 12.sp, color = Color.Gray)
+                                        }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.ThumbUp, contentDescription = "Likes", modifier = Modifier.size(14.dp), tint = Color.Gray)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(post.likesCount.toString(), fontSize = 12.sp, color = Color.Gray)
+                                        }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Chat, contentDescription = "Comments", modifier = Modifier.size(14.dp), tint = Color.Gray)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(post.commentsCount.toString(), fontSize = 12.sp, color = Color.Gray)
+                                        }
+                                    }
+                                    
+                                    val estimatedEarnings = when {
+                                        post.mediaType == "video" || post.mediaType == "reel" -> (actualViews / 1000.0) * monetizationSettings.reelRatePer1000
+                                        post.mediaType == "photo" -> (actualViews / 1000.0) * monetizationSettings.imageRatePer1000
+                                        else -> (actualViews / 1000.0) * monetizationSettings.textRatePer1000
+                                    }
+                                    
+                                    Text(
+                                        text = "BDT ${String.format(Locale.US, "%.2f", estimatedEarnings)}",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF00C853),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
+        }
+
+        // Transfer Confirm Dialog
+        if (showTransferConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showTransferConfirmDialog = false },
+                title = { Text("Transfer Funds", fontWeight = FontWeight.Bold) },
+                text = { Text("Are you sure you want to transfer BDT ${String.format(Locale.US, "%.2f", userProfile?.monetizationBalance ?: 0.0)} to your main wallet?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val balance = userProfile?.monetizationBalance ?: 0.0
+                            if (balance > 0 && userProfile != null) {
+                                val updatedProfile = userProfile.copy(
+                                    walletBalance = userProfile.walletBalance + balance,
+                                    monetizationBalance = 0.0
+                                )
+                                userRepo.updateUserProfile(updatedProfile)
+                                transferMessage = "Successfully transferred BDT ${String.format(Locale.US, "%.2f", balance)}"
+                            }
+                            showTransferConfirmDialog = false
+                        }
+                    ) { Text("Confirm") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showTransferConfirmDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        // Message Dialog
+        if (transferMessage != null) {
+            AlertDialog(
+                onDismissRequest = { transferMessage = null },
+                title = { Text("Wallet", fontWeight = FontWeight.Bold) },
+                text = { Text(transferMessage!!) },
+                confirmButton = {
+                    Button(onClick = { transferMessage = null }) { Text("OK") }
+                }
+            )
         }
 
         // Application Submitted Dialog

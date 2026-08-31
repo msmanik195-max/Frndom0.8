@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -163,6 +164,7 @@ fun FacebookProfileView(
     val clipboardManager = LocalClipboardManager.current
     val appSettingsRepository = remember { AppSettingsRepository.getInstance(context) }
     val autoPlayVideos by appSettingsRepository.autoPlayVideos.collectAsState()
+    val isDarkMode by appSettingsRepository.isDarkMode.collectAsState()
     val groupPageRepository = remember { GroupPageRepository(context) }
     val scope = rememberCoroutineScope()
     val isMyProfile = targetUser.uid == currentUserId
@@ -505,35 +507,41 @@ fun FacebookProfileView(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Button(
-                            onClick = onAddStoryClick,
+                            onClick = { currentSubScreen = ProfileSubScreen.DASHBOARD },
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0866FF)),
-                            modifier = Modifier.weight(1f)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "Share Story", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Icon(imageVector = Icons.Default.AutoGraph, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = "Dashboard", fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
                         }
 
                         Button(
                             onClick = { currentSubScreen = ProfileSubScreen.EDIT_PROFILE },
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFE4E6EB),
-                                contentColor = Color(0xFF050505)
+                                containerColor = if (isDarkMode) Color(0xFF3A3B3C) else Color(0xFFE4E6EB),
+                                contentColor = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
                             ),
-                            modifier = Modifier.weight(1f)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "Edit Profile", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = "Edit Profile", fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1)
                         }
 
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFE4E6EB),
+                            color = if (isDarkMode) Color(0xFF3A3B3C) else Color(0xFFE4E6EB),
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(36.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable { showProfileSettingsSheet = true }
                         ) {
@@ -541,8 +549,8 @@ fun FacebookProfileView(
                                 Icon(
                                     imageVector = Icons.Default.MoreHoriz,
                                     contentDescription = "Profile Settings",
-                                    tint = Color(0xFF050505),
-                                    modifier = Modifier.size(20.dp)
+                                    tint = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505),
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
@@ -1495,7 +1503,7 @@ fun FacebookProfileView(
         ModalBottomSheet(
             onDismissRequest = { showProfileSettingsSheet = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = Color.White
+            containerColor = if (isDarkMode) Color(0xFF242526) else Color.White
         ) {
             Column(
                 modifier = Modifier
@@ -1507,12 +1515,12 @@ fun FacebookProfileView(
                     text = if (isMyProfile) "Profile Settings" else "${displayName}'s Profile",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF050505),
+                    color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505),
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
 
                 if (isMyProfile) {
-                    // 1. Professional Dashboard / Monetization
+                    // 1. Dashboard
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1526,32 +1534,25 @@ fun FacebookProfileView(
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFFEBF5FF),
+                            color = if (isDarkMode) Color(0xFF1E3A5F) else Color(0xFFEBF5FF),
                             modifier = Modifier.size(40.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Default.MonetizationOn,
-                                    contentDescription = "Monetization",
+                                    imageVector = Icons.Default.AutoGraph,
+                                    contentDescription = "Dashboard",
                                     tint = Color(0xFF1877F2),
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
                         Spacer(modifier = Modifier.width(14.dp))
-                        Column {
-                            Text(
-                                text = "Monetization & Dashboard",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF050505)
-                            )
-                            Text(
-                                text = "View analytics, stars, gifts & creator payouts",
-                                fontSize = 12.sp,
-                                color = Color(0xFF65676B)
-                            )
-                        }
+                        Text(
+                            text = "Dashboard",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
+                        )
                     }
 
                     // 2. Pages
@@ -1568,7 +1569,7 @@ fun FacebookProfileView(
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFFFFF3E0),
+                            color = if (isDarkMode) Color(0xFF422E1A) else Color(0xFFFFF3E0),
                             modifier = Modifier.size(40.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -1581,19 +1582,12 @@ fun FacebookProfileView(
                             }
                         }
                         Spacer(modifier = Modifier.width(14.dp))
-                        Column {
-                            Text(
-                                text = "Pages",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF050505)
-                            )
-                            Text(
-                                text = "Discover, create and manage your pages",
-                                fontSize = 12.sp,
-                                color = Color(0xFF65676B)
-                            )
-                        }
+                        Text(
+                            text = "Pages",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
+                        )
                     }
 
                     // 3. Groups
@@ -1610,7 +1604,7 @@ fun FacebookProfileView(
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFFE8F5E9),
+                            color = if (isDarkMode) Color(0xFF1B382B) else Color(0xFFE8F5E9),
                             modifier = Modifier.size(40.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -1623,22 +1617,15 @@ fun FacebookProfileView(
                             }
                         }
                         Spacer(modifier = Modifier.width(14.dp))
-                        Column {
-                            Text(
-                                text = "Groups",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF050505)
-                            )
-                            Text(
-                                text = "Join, build and participate in communities",
-                                fontSize = 12.sp,
-                                color = Color(0xFF65676B)
-                            )
-                        }
+                        Text(
+                            text = "Groups",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
+                        )
                     }
 
-                    // 4. Verification Badge
+                    // 4. Verified
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1652,48 +1639,24 @@ fun FacebookProfileView(
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFFE8F5E9),
+                            color = if (isDarkMode) Color(0xFF1B382B) else Color(0xFFE8F5E9),
                             modifier = Modifier.size(40.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Image(
                                     painter = painterResource(id = R.drawable.ic_verified_badge_green),
-                                    contentDescription = "Verification Badge",
+                                    contentDescription = "Verified",
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
                         }
                         Spacer(modifier = Modifier.width(14.dp))
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Verification Badge",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF050505)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                if (user.isVerificationActive()) {
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = Color(0xFF00C853).copy(alpha = 0.15f)
-                                    ) {
-                                        Text(
-                                            text = "Active",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF008937),
-                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                        )
-                                    }
-                                }
-                            }
-                            Text(
-                                text = "Get your Green Verification Badge & build credibility",
-                                fontSize = 12.sp,
-                                color = Color(0xFF65676B)
-                            )
-                        }
+                        Text(
+                            text = "Verified",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
+                        )
                     }
 
                     // 5. Settings
@@ -1710,80 +1673,69 @@ fun FacebookProfileView(
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFFF0F2F5),
+                            color = if (isDarkMode) Color(0xFF3A3B3C) else Color(0xFFF0F2F5),
                             modifier = Modifier.size(40.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Settings,
                                     contentDescription = "Settings",
-                                    tint = Color(0xFF1C1E21),
+                                    tint = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF1C1E21),
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
                         Spacer(modifier = Modifier.width(14.dp))
-                        Column {
-                            Text(
-                                text = "Settings",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF050505)
-                            )
-                            Text(
-                                text = "Account preferences, privacy and security",
-                                fontSize = 12.sp,
-                                color = Color(0xFF65676B)
-                            )
-                        }
+                        Text(
+                            text = "Settings",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
+                        )
                     }
 
-                    Divider(thickness = 0.5.dp, color = Color(0xFFCED0D4), modifier = Modifier.padding(vertical = 6.dp))
+                    Divider(
+                        thickness = 0.5.dp,
+                        color = if (isDarkMode) Color(0xFF3E4042) else Color(0xFFCED0D4),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
                 }
 
-                // 5. Copy Profile Link Section
+                // Copy Link Row
                 val profileLink = "https://frndom.app/user/${user.uid}"
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFF0F2F5))
-                        .padding(14.dp)
-                ) {
-                    Text(
-                        text = if (isMyProfile) "Your Profile Link" else "${displayName}'s Profile Link",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF050505)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = profileLink,
-                        fontSize = 13.sp,
-                        color = Color(0xFF65676B)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Button(
-                        onClick = {
+                        .clickable {
                             clipboardManager.setText(AnnotatedString(profileLink))
                             Toast.makeText(context, "Profile link copied to clipboard!", Toast.LENGTH_SHORT).show()
                             showProfileSettingsSheet = false
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1877F2),
-                            contentColor = Color.White
-                        ),
-                        modifier = Modifier.fillMaxWidth()
+                        }
+                        .padding(vertical = 10.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isDarkMode) Color(0xFF3A3B3C) else Color(0xFFF0F2F5),
+                        modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Copy Profile Link", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy Link",
+                                tint = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF1C1E21),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Text(
+                        text = "Copy Profile Link",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isDarkMode) Color(0xFFE4E6EB) else Color(0xFF050505)
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

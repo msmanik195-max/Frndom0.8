@@ -690,7 +690,7 @@ fun VerificationBadgeScreen(
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "৳ ${String.format(Locale.US, "%.2f", walletBalance)}",
+                                        text = "BDT ${String.format(Locale.US, "%.2f", walletBalance)}",
                                         fontSize = 17.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF050505)
@@ -726,7 +726,7 @@ fun VerificationBadgeScreen(
                     }
                 }
 
-                // 4. CHOOSE YOUR PACKAGE (3 Packages strictly in ৳ BDT)
+                // 4. CHOOSE YOUR PACKAGE (3 Packages strictly in BDT)
                 item {
                     Column(
                         modifier = Modifier.padding(horizontal = 16.dp),
@@ -811,10 +811,10 @@ fun VerificationBadgeScreen(
                                             }
                                         }
 
-                                        // Price in BDT (৳)
+                                        // Price in BDT
                                         Column(horizontalAlignment = Alignment.End) {
                                             Text(
-                                                text = "৳ ${plan.price.toInt()}",
+                                                text = "BDT ${plan.price.toInt()}",
                                                 fontSize = 18.sp,
                                                 fontWeight = FontWeight.ExtraBold,
                                                 color = if (isSelected) darkGreen else Color(0xFF050505)
@@ -901,9 +901,9 @@ fun VerificationBadgeScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = if (isBadgeActive) {
-                                        "Extend Verification (৳ ${currentSelectedPlan.price.toInt()})"
+                                        "Extend Verification (BDT ${currentSelectedPlan.price.toInt()})"
                                     } else {
-                                        "Buy Verification Badge (৳ ${currentSelectedPlan.price.toInt()})"
+                                        "Buy Verification Badge (BDT ${currentSelectedPlan.price.toInt()})"
                                     },
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold
@@ -987,7 +987,7 @@ fun VerificationBadgeScreen(
                             ) {
                                 Text(text = "Package Price:", fontSize = 13.sp, color = Color(0xFF65676B))
                                 Text(
-                                    text = "৳ ${selectedPlan.price.toInt()}",
+                                    text = "BDT ${selectedPlan.price.toInt()}",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF050505)
@@ -999,7 +999,7 @@ fun VerificationBadgeScreen(
                             ) {
                                 Text(text = "Current Balance:", fontSize = 13.sp, color = Color(0xFF65676B))
                                 Text(
-                                    text = "৳ ${String.format(Locale.US, "%.2f", walletBalance)}",
+                                    text = "BDT ${String.format(Locale.US, "%.2f", walletBalance)}",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFFD32F2F)
@@ -1017,7 +1017,7 @@ fun VerificationBadgeScreen(
                                     color = Color(0xFFE65100)
                                 )
                                 Text(
-                                    text = "৳ ${String.format(Locale.US, "%.2f", if (deficit > 0) deficit else 0.0)}",
+                                    text = "BDT ${String.format(Locale.US, "%.2f", if (deficit > 0) deficit else 0.0)}",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color(0xFFE65100)
@@ -1105,7 +1105,7 @@ fun VerificationBadgeScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "৳ ${selectedPlan.price.toInt()} will be deducted from your wallet to activate the Green Verification Badge.",
+                        text = "BDT ${selectedPlan.price.toInt()} will be deducted from your wallet to activate the Green Verification Badge.",
                         fontSize = 14.sp,
                         color = Color(0xFF050505),
                         lineHeight = 20.sp
@@ -1131,7 +1131,7 @@ fun VerificationBadgeScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(text = "Price to Deduct:", fontSize = 13.sp, color = Color(0xFF008937), fontWeight = FontWeight.Medium)
-                                Text(text = "৳ ${selectedPlan.price.toInt()}", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF008937))
+                                Text(text = "BDT ${selectedPlan.price.toInt()}", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF008937))
                             }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1147,7 +1147,7 @@ fun VerificationBadgeScreen(
                             ) {
                                 Text(text = "Wallet Balance After:", fontSize = 12.sp, color = Color(0xFF2E7D32))
                                 Text(
-                                    text = "৳ ${String.format(Locale.US, "%.2f", walletBalance - selectedPlan.price)}",
+                                    text = "BDT ${String.format(Locale.US, "%.2f", walletBalance - selectedPlan.price)}",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF2E7D32)
@@ -1327,7 +1327,7 @@ fun VerificationBadgeScreen(
                             ) {
                                 Text(text = "Price:", fontSize = 13.sp, color = Color(0xFF65676B))
                                 Text(
-                                    text = "৳ ${purchasedPlan!!.price.toInt()} BDT",
+                                    text = "BDT ${purchasedPlan!!.price.toInt()}",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = darkGreen

@@ -37,10 +37,10 @@ import java.util.Date
 import java.util.Locale
 
 enum class GroupFilterTab(val title: String) {
-    ALL("সকল গ্রুপ"),
-    ACTIVE("সক্রিয়"),
-    BLOCKED("ব্লক করা"),
-    VERIFIED("ভেরিফাইড")
+    ALL("All Groups"),
+    ACTIVE("Active"),
+    BLOCKED("Blocked"),
+    VERIFIED("Verified")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,7 +95,7 @@ fun AdminGroupManagementView(
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "গ্রুপ ম্যানেজমেন্ট",
+                                text = "Group Management",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
                                 color = Color(0xFF050505)
@@ -115,7 +115,7 @@ fun AdminGroupManagementView(
                             }
                         }
                         Text(
-                            text = "সকল ইউজারের গ্রুপ পরিচালনা ও নিয়ন্ত্রণ",
+                            text = "Manage and oversee all user groups",
                             fontSize = 11.sp,
                             color = Color(0xFF65676B)
                         )
@@ -158,10 +158,10 @@ fun AdminGroupManagementView(
                             .padding(14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        AdminStatMiniItem(title = "মোট গ্রুপ", value = "$totalCount", color = Color(0xFF1877F2))
-                        AdminStatMiniItem(title = "সক্রিয়", value = "$activeCount", color = Color(0xFF2E7D32))
-                        AdminStatMiniItem(title = "ব্লকড", value = "$blockedCount", color = Color(0xFFD32F2F))
-                        AdminStatMiniItem(title = "ভেরিফাইড", value = "$verifiedCount", color = Color(0xFF00897B))
+                        AdminStatMiniItem(title = "Total Groups", value = "$totalCount", color = Color(0xFF1877F2))
+                        AdminStatMiniItem(title = "Active", value = "$activeCount", color = Color(0xFF2E7D32))
+                        AdminStatMiniItem(title = "Blocked", value = "$blockedCount", color = Color(0xFFD32F2F))
+                        AdminStatMiniItem(title = "Verified", value = "$verifiedCount", color = Color(0xFF00897B))
                     }
                 }
             }
@@ -171,7 +171,7 @@ fun AdminGroupManagementView(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("গ্রুপ নাম, ক্যাটাগরি, আইডি খুঁজুন...", fontSize = 14.sp) },
+                    placeholder = { Text("Search by group name, category, ID...", fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Search", tint = Color(0xFF65676B))
                     },
@@ -247,13 +247,13 @@ fun AdminGroupManagementView(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "কোন গ্রুপ পাওয়া যায়নি",
+                                text = "No groups found",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF65676B)
                             )
                             Text(
-                                text = "ইউজাররা গ্রুপ তৈরি করলে এখানে দেখা যাবে",
+                                text = "When users create groups, they will appear here",
                                 fontSize = 12.sp,
                                 color = Color(0xFF8A8D91)
                             )
@@ -270,7 +270,7 @@ fun AdminGroupManagementView(
                             repository.setGroupBlocked(group.id, newStatus)
                             Toast.makeText(
                                 context,
-                                if (newStatus) "গ্রুপ '${group.name}' ব্লক করা হয়েছে" else "গ্রুপ '${group.name}' আনব্লক করা হয়েছে",
+                                if (newStatus) "Group '${group.name}' blocked" else "Group '${group.name}' unblocked",
                                 Toast.LENGTH_SHORT
                             ).show()
                         },
@@ -291,7 +291,7 @@ fun AdminGroupManagementView(
             onSave = { updated ->
                 repository.updateGroup(updated)
                 editingGroup = null
-                Toast.makeText(context, "গ্রুপ সফলভাবে আপডেট হয়েছে", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Group successfully updated", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -301,25 +301,25 @@ fun AdminGroupManagementView(
         AlertDialog(
             onDismissRequest = { deletingGroup = null },
             icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFD32F2F)) },
-            title = { Text("গ্রুপ মুছে ফেলতে চান?", fontWeight = FontWeight.Bold) },
+            title = { Text("Delete Group?", fontWeight = FontWeight.Bold) },
             text = {
-                Text("আপনি কি নিশ্চিত যে '${group.name}' গ্রুপটি স্থায়ীভাবে ডাটাবেজ থেকে মুছে ফেলতে চান? এটি আর ফিরিয়ে আনা যাবে না।")
+                Text("Are you sure you want to permanently delete '${group.name}' from the database? This action cannot be undone.")
             },
             confirmButton = {
                 Button(
                     onClick = {
                         repository.deleteGroup(group.id)
                         deletingGroup = null
-                        Toast.makeText(context, "গ্রুপ মুছে ফেলা হয়েছে", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Group deleted", Toast.LENGTH_SHORT).show()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
                 ) {
-                    Text("হ্যাঁ, ডিলিট করুন", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Yes, Delete", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 OutlinedButton(onClick = { deletingGroup = null }) {
-                    Text("বাতিল")
+                    Text("Cancel")
                 }
             }
         )
@@ -333,7 +333,7 @@ fun AdminGroupManagementView(
             onSave = { isVerified, badgeType, expiresAt ->
                 repository.setGroupVerification(group.id, isVerified, badgeType, expiresAt)
                 badgeManagingGroup = null
-                Toast.makeText(context, "ভেরিফিকেশন ব্যাজ আপডেট হয়েছে", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Verification badge updated", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -341,18 +341,18 @@ fun AdminGroupManagementView(
     // 4. Verification Expiry / Validity Dialog (Increase / Decrease)
     expiryManagingGroup?.let { group ->
         AdminBadgeExpiryDialog(
-            title = "গ্রুপ ব্যাজের মেয়াদ পরিবর্তন",
+            title = "Adjust Group Badge Expiry",
             currentExpiry = group.badgeExpiresAt,
             onDismiss = { expiryManagingGroup = null },
             onAdjustDays = { days ->
                 repository.adjustGroupBadgeExpiry(group.id, days)
                 expiryManagingGroup = null
-                Toast.makeText(context, "মেয়াদ আপডেট হয়েছে", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Badge expiry updated", Toast.LENGTH_SHORT).show()
             },
             onSetCustomExpiry = { expiryMs ->
                 repository.setGroupVerification(group.id, true, group.badgeType, expiryMs)
                 expiryManagingGroup = null
-                Toast.makeText(context, "মেয়াদ আপডেট হয়েছে", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Badge expiry updated", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -462,7 +462,7 @@ private fun AdminGroupCard(
                             color = Color(0xFFE8F5E9)
                         ) {
                             Text(
-                                text = "${group.membersCount} মেম্বার",
+                                text = "${group.membersCount} members",
                                 fontSize = 11.sp,
                                 color = Color(0xFF2E7D32),
                                 fontWeight = FontWeight.SemiBold,
@@ -491,7 +491,7 @@ private fun AdminGroupCard(
                     color = if (group.isBlocked) Color(0xFFFFEBEE) else Color(0xFFE8F5E9)
                 ) {
                     Text(
-                        text = if (group.isBlocked) "ব্লকড" else "সক্রিয়",
+                        text = if (group.isBlocked) "Blocked" else "Active",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (group.isBlocked) Color(0xFFD32F2F) else Color(0xFF2E7D32),
@@ -524,13 +524,13 @@ private fun AdminGroupCard(
             ) {
                 Column {
                     Text(
-                        text = "তৈরি: ${dateFormat.format(Date(group.createdAt))}",
+                        text = "Created: ${dateFormat.format(Date(group.createdAt))}",
                         fontSize = 11.sp,
                         color = Color(0xFF8A8D91)
                     )
                     if (group.creatorId.isNotBlank()) {
                         Text(
-                            text = "ক্রিয়েটর আইডি: ${group.creatorId}",
+                            text = "Creator ID: ${group.creatorId}",
                             fontSize = 10.sp,
                             color = Color(0xFF8A8D91),
                             maxLines = 1,
@@ -558,15 +558,15 @@ private fun AdminGroupCard(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             val expiryText = if (group.badgeExpiresAt == 0L) {
-                                "আজীবন"
+                                "Lifetime"
                             } else if (isVerifiedActive) {
                                 val remainingDays = ((group.badgeExpiresAt - System.currentTimeMillis()) / (1000 * 60 * 60 * 24)).coerceAtLeast(0)
-                                "$remainingDays দিন বাকি"
+                                "$remainingDays days left"
                             } else {
-                                "মেয়াদ শেষ"
+                                "Expired"
                             }
                             Text(
-                                text = "ব্যাজ: $expiryText",
+                                text = "Badge: $expiryText",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isVerifiedActive) Color(0xFF1877F2) else Color(0xFFD32F2F)
@@ -592,7 +592,7 @@ private fun AdminGroupCard(
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("ইডিট", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Edit", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
 
                 // 2. Block / Unblock
@@ -613,7 +613,7 @@ private fun AdminGroupCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (group.isBlocked) "আনব্লক" else "ব্লক",
+                        text = if (group.isBlocked) "Unblock" else "Block",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -635,7 +635,7 @@ private fun AdminGroupCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (group.isVerified) "ব্যাজ অন" else "ব্যাজ অফ",
+                        text = if (group.isVerified) "Badge ON" else "Badge OFF",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (group.isVerified) Color(0xFF1877F2) else Color(0xFF65676B)
@@ -679,7 +679,7 @@ fun AdminEditGroupDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("গ্রুপ তথ্য সম্পাদনা (Edit Group)", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+        title = { Text("Edit Group Details", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -688,7 +688,7 @@ fun AdminEditGroupDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("গ্রুপের নাম") },
+                    label = { Text("Group Name") },
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -697,7 +697,7 @@ fun AdminEditGroupDialog(
                 OutlinedTextField(
                     value = category,
                     onValueChange = { category = it },
-                    label = { Text("ক্যাটাগরি") },
+                    label = { Text("Category") },
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -710,7 +710,7 @@ fun AdminEditGroupDialog(
                     OutlinedTextField(
                         value = privacy,
                         onValueChange = { privacy = it },
-                        label = { Text("প্রাইভেসি (Public/Private)") },
+                        label = { Text("Privacy (Public/Private)") },
                         singleLine = true,
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.weight(1f)
@@ -718,7 +718,7 @@ fun AdminEditGroupDialog(
                     OutlinedTextField(
                         value = membersCountStr,
                         onValueChange = { membersCountStr = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("মেম্বার সংখ্যা") },
+                        label = { Text("Members Count") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         shape = RoundedCornerShape(10.dp),
@@ -729,7 +729,7 @@ fun AdminEditGroupDialog(
                 OutlinedTextField(
                     value = coverUrl,
                     onValueChange = { coverUrl = it },
-                    label = { Text("কভার ছবির URL") },
+                    label = { Text("Cover Image URL") },
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -738,7 +738,7 @@ fun AdminEditGroupDialog(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("বিবরণ / রুলস") },
+                    label = { Text("Description / Rules") },
                     maxLines = 3,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -762,12 +762,12 @@ fun AdminEditGroupDialog(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2))
             ) {
-                Text("সংরক্ষণ করুন", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Save Changes", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
-                Text("বাতিল")
+                Text("Cancel")
             }
         }
     )
@@ -792,7 +792,7 @@ fun AdminGroupBadgeDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Verified, contentDescription = null, tint = Color(0xFF1877F2))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("ভেরিফিকেশন ব্যাজ কন্ট্রোল", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Verification Badge Control", fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
         },
         text = {
@@ -810,9 +810,9 @@ fun AdminGroupBadgeDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("ভেরিফিকেশন ব্যাজ চালু", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("Enable Verification Badge", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         Text(
-                            text = if (isVerified) "গ্রুপের পাশে ভেরিফাইড টিক চিহ্ন থাকবে" else "ব্যাজ বন্ধ থাকবে",
+                            text = if (isVerified) "Verified badge icon displayed next to group" else "Badge is disabled",
                             fontSize = 12.sp,
                             color = Color(0xFF65676B)
                         )
@@ -829,7 +829,7 @@ fun AdminGroupBadgeDialog(
 
                 if (isVerified) {
                     // Badge Color Type
-                    Text("ব্যাজের ধরন ও রঙ:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Badge Type & Color:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -853,7 +853,7 @@ fun AdminGroupBadgeDialog(
                             ) {
                                 Icon(Icons.Default.Verified, contentDescription = null, tint = Color(0xFF1877F2), modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("ব্লু ব্যাজ", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1877F2))
+                                Text("Blue Badge", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1877F2))
                             }
                         }
 
@@ -876,22 +876,22 @@ fun AdminGroupBadgeDialog(
                             ) {
                                 VerificationBadge(size = 20.dp, show = true)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("গ্রিন ব্যাজ", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF2E7D32))
+                                Text("Green Badge", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF2E7D32))
                             }
                         }
                     }
 
                     // Expiry options
-                    Text("মেয়াদ নির্ধারণ:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Select Validity:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         listOf(
-                            "LIFETIME" to "আজীবন",
-                            "30_DAYS" to "৩০ দিন",
-                            "90_DAYS" to "৯০ দিন",
-                            "365_DAYS" to "১ বছর"
+                            "LIFETIME" to "Lifetime",
+                            "30_DAYS" to "30 Days",
+                            "90_DAYS" to "90 Days",
+                            "365_DAYS" to "1 Year"
                         ).forEach { (key, label) ->
                             val isSelected = validityOption == key
                             Surface(
@@ -930,12 +930,12 @@ fun AdminGroupBadgeDialog(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2))
             ) {
-                Text("আপডেট করুন", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Update", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
-                Text("বাতিল")
+                Text("Cancel")
             }
         }
     )
@@ -976,9 +976,9 @@ fun AdminBadgeExpiryDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("বর্তমান ভেরিফিকেশন মেয়াদ:", fontSize = 12.sp, color = Color(0xFF004D40))
+                        Text("Current Verification Expiry:", fontSize = 12.sp, color = Color(0xFF004D40))
                         Text(
-                            text = if (currentExpiry == 0L) "আজীবন (Lifetime - কোনো মেয়াদ শেষ নেই)"
+                            text = if (currentExpiry == 0L) "Lifetime (No expiration)"
                             else dateFormat.format(Date(currentExpiry)),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
@@ -987,16 +987,16 @@ fun AdminBadgeExpiryDialog(
                     }
                 }
 
-                Text("দ্রুত মেয়াদ বৃদ্ধি (Quick Add):", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text("Quick Add Expiry:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     listOf(
-                        "+৭ দিন" to 7,
-                        "+৩০ দিন" to 30,
-                        "+৯০ দিন" to 90,
-                        "+১ বছর" to 365
+                        "+7 Days" to 7,
+                        "+30 Days" to 30,
+                        "+90 Days" to 90,
+                        "+1 Year" to 365
                     ).forEach { (label, days) ->
                         Button(
                             onClick = { onAdjustDays(days) },
@@ -1010,7 +1010,7 @@ fun AdminBadgeExpiryDialog(
                     }
                 }
 
-                Text("মেয়াদ কমানো বা আজীবন করা (Reduce / Lifetime):", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text("Reduce or Lifetime Expiry:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1021,7 +1021,7 @@ fun AdminBadgeExpiryDialog(
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
                         modifier = Modifier.weight(1f).height(38.dp)
                     ) {
-                        Text("-৭ দিন", fontSize = 11.sp, color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
+                        Text("-7 Days", fontSize = 11.sp, color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
                     }
                     OutlinedButton(
                         onClick = { onAdjustDays(-30) },
@@ -1029,7 +1029,7 @@ fun AdminBadgeExpiryDialog(
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
                         modifier = Modifier.weight(1f).height(38.dp)
                     ) {
-                        Text("-৩০ দিন", fontSize = 11.sp, color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
+                        Text("-30 Days", fontSize = 11.sp, color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
                     }
                     Button(
                         onClick = { onSetCustomExpiry(0L) },
@@ -1038,12 +1038,12 @@ fun AdminBadgeExpiryDialog(
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
                         modifier = Modifier.weight(1.3f).height(38.dp)
                     ) {
-                        Text("আজীবন (∞)", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Lifetime (∞)", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
 
                 // Custom Days Input
-                Text("কাস্টম দিন যুক্ত করুন:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text("Add Custom Days:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1052,7 +1052,7 @@ fun AdminBadgeExpiryDialog(
                     OutlinedTextField(
                         value = customDaysText,
                         onValueChange = { customDaysText = it.filter { ch -> ch.isDigit() } },
-                        placeholder = { Text("দিনের সংখ্যা লিখুন (যেমন: ৪৫)") },
+                        placeholder = { Text("Enter number of days (e.g., 45)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         shape = RoundedCornerShape(8.dp),
@@ -1070,7 +1070,7 @@ fun AdminBadgeExpiryDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00897B)),
                         modifier = Modifier.height(52.dp)
                     ) {
-                        Text("যোগ", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Add", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
@@ -1078,7 +1078,7 @@ fun AdminBadgeExpiryDialog(
         confirmButton = {},
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
-                Text("বন্ধ করুন")
+                Text("Close")
             }
         }
     )
